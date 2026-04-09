@@ -1,0 +1,70 @@
+{
+  "info": {
+    "name": "Medi-Trap | Bulk Purchaser Register (100 Users)",
+    "_postman_id": "medi-trap-bulk-purchaser-2025-10-22",
+    "description": "Creates 100 random purchaser entries using live register API: https://api.medi-trap.com/api/purchaser/register",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Register Purchaser",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Initialize counter if not exists",
+              "if (!pm.globals.has('purchaserIndex')) pm.globals.set('purchaserIndex', 0);",
+              "let index = parseInt(pm.globals.get('purchaserIndex'));",
+              "",
+              "// Generate purchaser fields dynamically",
+              "pm.environment.set('fullName', `Purchaser_${index + 1}`);",
+              "pm.environment.set('address', `House No ${index + 1}, Green Avenue Colony`);",
+              "pm.environment.set('contactNo', `98765${(1000 + index).toString().slice(-4)}`);",
+              "pm.environment.set('email', `purchaser${index + 1}@medi-trap.com`);",
+              "pm.environment.set('password', 'Purchaser@123');",
+              "",
+              "// Increment counter for next iteration",
+              "pm.globals.set('purchaserIndex', index + 1);"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "let index = parseInt(pm.globals.get('purchaserIndex'));",
+              "console.log(`✅ Created purchaser #${index - 1}`);",
+              "// Reset counter after 100 users",
+              "if (index > 100) pm.globals.set('purchaserIndex', 0);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "fullName", "value": "{{fullName}}", "type": "text" },
+            { "key": "address", "value": "{{address}}", "type": "text" },
+            { "key": "contactNo", "value": "{{contactNo}}", "type": "text" },
+            { "key": "email", "value": "{{email}}", "type": "text" },
+            { "key": "password", "value": "{{password}}", "type": "text" },
+            { "key": "aadharImage", "type": "file", "src": "C:/Users/divya/OneDrive/Pictures/Screenshots/Screenshot 2025-03-31 111634.png" },
+            { "key": "photo", "type": "file", "src": "C:/Users/divya/OneDrive/Pictures/Screenshots/Screenshot 2025-03-31 111634.png" }
+          ]
+        },
+        "url": {
+          "raw": "https://api.medi-trap.com/api/purchaser/register",
+          "protocol": "https",
+          "host": ["api", "medi-trap", "com"],
+          "path": ["api", "purchaser", "register"]
+        }
+      }
+    }
+  ]
+}

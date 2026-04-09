@@ -1,0 +1,78 @@
+{
+  "info": {
+    "name": "Medi-Trap | Bulk Signup Test (1000 Unique Users)",
+    "_postman_id": "medi-trap-bulk-signup-2025-10-19-unique-1000",
+    "description": "Creates 1000 random unique medical store users using https://api.medi-trap.com/api/auth/signup",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Signup Random Medical Store User",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "// Generate a random alphanumeric string",
+              "function randomString(length) {",
+              "    const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';",
+              "    let str = '';",
+              "    for (let i = 0; i < length; i++) {",
+              "        str += chars.charAt(Math.floor(Math.random() * chars.length));",
+              "    }",
+              "    return str;",
+              "}",
+              "",
+              "// Generate random user data",
+              "const rand = randomString(8);",
+              "pm.environment.set('medicalName', `Medical_${rand}`);",
+              "pm.environment.set('ownerName', `Owner_${rand}`);",
+              "pm.environment.set('address', `123 Health Street Apt ${Math.floor(Math.random()*1000)}`);",
+              "pm.environment.set('email', `user_${rand}@medi-trap.com`);",
+              "pm.environment.set('contactNo', `9${Math.floor(100000000 + Math.random()*900000000)}`);",
+              "pm.environment.set('drugLicenseNo', `DL${Math.floor(100000 + Math.random()*900000)}`);",
+              "pm.environment.set('password', 'Test@1234');"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "console.log(`✅ Created user: ${pm.environment.get('email')}`);"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "medicalName", "value": "{{medicalName}}", "type": "text" },
+            { "key": "ownerName", "value": "{{ownerName}}", "type": "text" },
+            { "key": "address", "value": "{{address}}", "type": "text" },
+            { "key": "email", "value": "{{email}}", "type": "text" },
+            { "key": "contactNo", "value": "{{contactNo}}", "type": "text" },
+            { "key": "drugLicenseNo", "value": "{{drugLicenseNo}}", "type": "text" },
+            { "key": "password", "value": "{{password}}", "type": "text" },
+            {
+              "key": "drugLicenseImage",
+              "type": "file",
+              "src": "C:/Users/divya/OneDrive/Pictures/Screenshots/Screenshot 2025-03-31 111634.png"
+            }
+          ]
+        },
+        "url": {
+          "raw": "https://api.medi-trap.com/api/auth/signup",
+          "protocol": "https",
+          "host": ["api", "medi-trap", "com"],
+          "path": ["api", "auth", "signup"]
+        }
+      }
+    }
+  ]
+}

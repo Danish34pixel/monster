@@ -1,0 +1,103 @@
+{
+  "info": {
+    "name": "MedTek Staff API",
+    "_postman_id": "2025-10-19-staff-collection",
+    "description": "Postman collection for testing the Staff-related API routes in the MedTek backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Staff (Authenticated)",
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "name", "value": "Amit Verma", "type": "text" },
+            { "key": "email", "value": "amit@example.com", "type": "text" },
+            { "key": "phone", "value": "9876543210", "type": "text" },
+            { "key": "role", "value": "Pharmacist", "type": "text" },
+            { "key": "image", "type": "file", "src": "C:/Users/you/Desktop/staff_photo.jpg" },
+            { "key": "aadharCard", "type": "file", "src": "C:/Users/you/Desktop/staff_aadhar.jpg" }
+          ]
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/staff",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "staff"]
+        }
+      }
+    },
+    {
+      "name": "List All Staff (Public)",
+      "request": {
+        "method": "GET",
+        "url": {
+          "raw": "http://localhost:5000/api/staff",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "staff"]
+        }
+      }
+    },
+    {
+      "name": "List Staff by Stockist (Authenticated)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "http://localhost:5000/api/staff?stockist=me",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "staff"],
+          "query": [
+            { "key": "stockist", "value": "me" }
+          ]
+        }
+      }
+    },
+    {
+      "name": "Get Staff by ID (Authenticated)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:5000/api/staff/{{staffId}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "staff", "{{staffId}}"]
+        }
+      }
+    },
+    {
+      "name": "Delete Staff (Authenticated - Admin or Stockist)",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:5000/api/staff/{{staffId}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "staff", "{{staffId}}"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "token", "value": "" },
+    { "key": "staffId", "value": "" }
+  ]
+}

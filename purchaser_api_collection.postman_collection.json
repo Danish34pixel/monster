@@ -1,0 +1,99 @@
+{
+  "info": {
+    "name": "MedTek Purchaser API",
+    "_postman_id": "2025-10-19-purchaser-collection",
+    "description": "Postman collection for testing Purchaser-related API routes in the MedTek backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create Purchaser (Public)",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "name", "value": "Rahul Sharma", "type": "text" },
+            { "key": "email", "value": "rahul@example.com", "type": "text" },
+            { "key": "password", "value": "Test@1234", "type": "text" },
+            { "key": "contactNo", "value": "9876543210", "type": "text" },
+            { "key": "aadharImage", "type": "file", "src": "C:/Users/you/Desktop/aadhar.jpg" },
+            { "key": "photo", "type": "file", "src": "C:/Users/you/Desktop/photo.jpg" }
+          ]
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/purchaser",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "purchaser"]
+        }
+      }
+    },
+    {
+      "name": "Login Purchaser",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"email\": \"rahul@example.com\",\n  \"password\": \"Test@1234\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/purchaser/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "purchaser", "login"]
+        }
+      }
+    },
+    {
+      "name": "List Purchasers (Protected)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "http://localhost:5000/api/purchaser",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "purchaser"]
+        }
+      }
+    },
+    {
+      "name": "Get Purchaser by ID (Protected)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "http://localhost:5000/api/purchaser/{{purchaserId}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "purchaser", "{{purchaserId}}"]
+        }
+      }
+    },
+    {
+      "name": "Delete Purchaser (Protected)",
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "http://localhost:5000/api/purchaser/{{purchaserId}}",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "purchaser", "{{purchaserId}}"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "token", "value": "" },
+    { "key": "purchaserId", "value": "" }
+  ]
+}

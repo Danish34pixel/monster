@@ -1,0 +1,9 @@
+@echo off
+echo Starting MedTrap Backend...
+echo.
+echo Installing dependencies...
+npm install
+echo.
+echo Starting server...
+npm run dev
+pause

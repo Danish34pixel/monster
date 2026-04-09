@@ -1,0 +1,153 @@
+{
+  "info": {
+    "name": "MedTek Auth & User API",
+    "_postman_id": "a8f80b1a-1234-5678-9999-abcdef123456",
+    "description": "Collection for testing authentication and user management endpoints of MedTek backend using Postman.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Signup - Medical Owner",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "medicalName", "value": "Apollo Pharmacy", "type": "text" },
+            { "key": "ownerName", "value": "John Doe", "type": "text" },
+            { "key": "address", "value": "123 Health Street, Mumbai", "type": "text" },
+            { "key": "email", "value": "apollo@example.com", "type": "text" },
+            { "key": "contactNo", "value": "9876543210", "type": "text" },
+            { "key": "drugLicenseNo", "value": "DL-4567-MUM", "type": "text" },
+            { "key": "password", "value": "Test@1234", "type": "text" },
+            { "key": "drugLicenseImage", "type": "file", "src": "C:/Users/you/Desktop/license.jpg" }
+          ]
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/auth/signup",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "auth", "signup"]
+        }
+      }
+    },
+    {
+      "name": "Login - Medical Owner",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n    \"email\": \"apollo@example.com\",\n    \"password\": \"Test@1234\",\n    \"role\": \"medicalOwner\"\n}"
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/auth/login",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "auth", "login"]
+        }
+      }
+    },
+    {
+      "name": "Get Profile (Me)",
+      "request": {
+        "method": "GET",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{token}}" }
+        ],
+        "url": {
+          "raw": "http://localhost:5000/api/auth/me",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "auth", "me"]
+        }
+      }
+    },
+    {
+      "name": "Update Profile",
+      "request": {
+        "method": "PUT",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            { "key": "medicalName", "value": "Apollo Plus Pharmacy", "type": "text" },
+            { "key": "address", "value": "New Address 456, Mumbai", "type": "text" }
+          ]
+        },
+        "url": {
+          "raw": "http://localhost:5000/api/auth/profile",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "auth", "profile"]
+        }
+      }
+    },
+    {
+      "name": "Get All Users (Admin)",
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "http://localhost:5000/api/users",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "users"]
+        }
+      }
+    },
+    {
+      "name": "Approve User (Admin)",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "http://localhost:5000/api/users/{{userId}}/approve",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "users", "{{userId}}", "approve"]
+        }
+      }
+    },
+    {
+      "name": "Decline User (Admin)",
+      "request": {
+        "method": "PATCH",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": {
+          "raw": "http://localhost:5000/api/users/{{userId}}/decline",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "users", "{{userId}}", "decline"]
+        }
+      }
+    },
+    {
+      "name": "Logout",
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+        "url": {
+          "raw": "http://localhost:5000/api/auth/logout",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
+          "path": ["api", "auth", "logout"]
+        }
+      }
+    }
+  ],
+  "variable": [
+    { "key": "token", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "userId", "value": "" }
+  ]
+}

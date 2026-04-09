@@ -1,0 +1,162 @@
+{
+  "info": {
+    "name": "MedTek Stockist, Company & Medicine API",
+    "_postman_id": "b6fa91c1-2025-10-19-collection",
+    "description": "Postman collection for testing Stockist, Company, and Medicine APIs in the MedTek backend.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "🔹 STOCKIST ROUTES",
+      "item": [
+        {
+          "name": "List Stockists",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/stockist", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "stockist"] }
+          }
+        },
+        {
+          "name": "Get Stockist by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/stockist/{{stockistId}}", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "stockist", "{{stockistId}}"] }
+          }
+        },
+        {
+          "name": "Create Stockist (Authenticated)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }, { "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"MedLife Distributors\",\n  \"email\": \"medlife@example.com\",\n  \"contactNo\": \"9876543210\",\n  \"address\": \"123 Pharma Road, Delhi\"\n}"
+            },
+            "url": { "raw": "http://localhost:5000/api/stockist", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "stockist"] }
+          }
+        },
+        {
+          "name": "Register Stockist (Public)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"New Medtek Distributor\",\n  \"email\": \"newstockist@example.com\",\n  \"password\": \"Test@1234\",\n  \"contactNo\": \"9876500000\"\n}"
+            },
+            "url": { "raw": "http://localhost:5000/api/stockist/register", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "stockist", "register"] }
+          }
+        },
+        {
+          "name": "Upload License Image (Auth)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "licenseImage", "type": "file", "src": "C:/Users/you/Desktop/license.jpg" }
+              ]
+            },
+            "url": { "raw": "http://localhost:5000/api/stockist/upload-license", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "stockist", "upload-license"] }
+          }
+        },
+        {
+          "name": "Upload Profile Image (Auth)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                { "key": "profileImage", "type": "file", "src": "C:/Users/you/Desktop/profile.jpg" }
+              ]
+            },
+            "url": { "raw": "http://localhost:5000/api/stockist/upload-profile", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "stockist", "upload-profile"] }
+          }
+        },
+        {
+          "name": "Verify Stockist Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"medlife@example.com\",\n  \"password\": \"Test@1234\"\n}"
+            },
+            "url": { "raw": "http://localhost:5000/api/stockist/verify-password", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "stockist", "verify-password"] }
+          }
+        },
+        {
+          "name": "Approve Stockist (Admin Only)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "http://localhost:5000/api/stockist/{{stockistId}}/approve", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "stockist", "{{stockistId}}", "approve"] }
+          }
+        },
+        {
+          "name": "Decline Stockist (Admin Only)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+            "url": { "raw": "http://localhost:5000/api/stockist/{{stockistId}}/decline", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "stockist", "{{stockistId}}", "decline"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔹 COMPANY ROUTES",
+      "item": [
+        {
+          "name": "List Companies",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/company", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "company"] }
+          }
+        },
+        {
+          "name": "Create Company (Public)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Cipla Ltd\",\n  \"address\": \"Pharma Park, Pune\",\n  \"email\": \"info@cipla.com\"\n}"
+            },
+            "url": { "raw": "http://localhost:5000/api/company", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "company"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "🔹 MEDICINE ROUTES",
+      "item": [
+        {
+          "name": "List Medicines",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "http://localhost:5000/api/medicine", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "medicine"] }
+          }
+        },
+        {
+          "name": "Quick Create Medicine (Public)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Paracetamol 500mg\",\n  \"company\": \"Cipla Ltd\",\n  \"price\": 25,\n  \"category\": \"Pain Relief\"\n}"
+            },
+            "url": { "raw": "http://localhost:5000/api/medicine/quick", "protocol": "http", "host": ["localhost"], "port": "5000", "path": ["api", "medicine", "quick"] }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "token", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "stockistId", "value": "" }
+  ]
+}

@@ -1,0 +1,1 @@
+[{"name":"ac-yfavkll-shard-00-00.b0gnbc8.mongodb.net","port":27017,"priority":0,"weight":0,"type":"SRV"},{"name":"ac-yfavkll-shard-00-02.b0gnbc8.mongodb.net","port":27017,"priority":0,"weight":0,"type":"SRV"},{"name":"ac-yfavkll-shard-00-01.b0gnbc8.mongodb.net","port":27017,"priority":0,"weight":0,"type":"SRV"}]
