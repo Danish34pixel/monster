@@ -1,16 +1,20 @@
-const Company = require("../models/Company");
+﻿const Company = require("../models/Company");
 
 exports.getCompanies = async (req, res) => {
   try {
     let { page = 1, limit = 10 } = req.query;
-    page = parseInt(page);
-    limit = parseInt(limit);
+    page = Number.parseInt(page, 10) || 1;
+    limit = Math.min(100, Number.parseInt(limit, 10) || 10);
+
     const totalCompanies = await Company.countDocuments();
     const data = await Company.find()
+      .select("name description active createdAt updatedAt")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
-      .limit(limit);
-    res.json({
+      .limit(limit)
+      .lean();
+
+    return res.json({
       success: true,
       currentPage: page,
       totalPages: Math.ceil(totalCompanies / limit),
@@ -19,27 +23,32 @@ exports.getCompanies = async (req, res) => {
       data,
     });
   } catch (err) {
-    console.error("getCompanies error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: "Failed to fetch companies" });
   }
 };
 
-// Create a new company (admin only)
 exports.createCompany = async (req, res) => {
   try {
-    const payload = req.body || {};
-    const name = payload.name || payload.title || payload.companyName;
-    if (!name) {
-      return res
-        .status(400)
-        .json({ success: false, message: "Company name is required." });
-    }
+    const payload = {
+      name: req.body.name,
+      description: req.body.description,
+      active: typeof req.body.active === "boolean" ? req.body.active : true,
+    };
 
-    const company = new Company(payload);
-    await company.save();
-    res.status(201).json({ success: true, data: company });
+    const company = await Company.create(payload);
+    return res.status(201).json({
+      success: true,
+      data: {
+        _id: company._id,
+        name: company.name,
+        description: company.description,
+        active: company.active,
+      },
+    });
   } catch (err) {
-    console.error("createCompany error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    if (err && err.code === 11000) {
+      return res.status(409).json({ success: false, message: "Company already exists" });
+    }
+    return res.status(500).json({ success: false, message: "Failed to create company" });
   }
 };

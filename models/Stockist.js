@@ -1,54 +1,54 @@
-const mongoose = require("mongoose");
+﻿const mongoose = require("mongoose");
 
-// Lenient schema to avoid breaking if existing documents have different shapes.
-// We add common fields while keeping strict: false so older documents remain valid.
 const StockistSchema = new mongoose.Schema(
   {
-    name: { type: String },
-    contactPerson: { type: String },
-    phone: { type: String },
-    email: { type: String },
-    password: { type: String },
-    address: {
-      street: String,
-      city: String,
-      state: String,
-      pincode: String,
+    name: { type: String, required: true, trim: true, maxlength: 120 },
+    contactPerson: { type: String, trim: true, maxlength: 120 },
+    phone: { type: String, trim: true, maxlength: 20 },
+    email: {
+      type: String,
+      trim: true,
+      lowercase: true,
+      unique: true,
+      sparse: true,
+      maxlength: 120,
     },
-    licenseNumber: String,
-    licenseExpiry: Date,
-    licenseImageUrl: { type: String },
-    // New fields
-    dob: Date,
-    bloodGroup: String,
-    profileImageUrl: { type: String },
-    roleType: String, // 'Proprietor' or 'Pharmacist'
-    cntxNumber: String,
-    // Approval metadata (set by admin)
+    password: { type: String, select: false },
+    resetPasswordToken: { type: String, select: false },
+    resetPasswordExpires: { type: Date, select: false },
+    address: {
+      street: { type: String, trim: true, maxlength: 200 },
+      city: { type: String, trim: true, maxlength: 120 },
+      state: { type: String, trim: true, maxlength: 120 },
+      pincode: { type: String, trim: true, maxlength: 12 },
+    },
+    licenseNumber: { type: String, trim: true, maxlength: 60 },
+    licenseExpiry: { type: Date },
+    licenseImageUrl: { type: String, trim: true },
+    dob: { type: Date },
+    bloodGroup: { type: String, trim: true, maxlength: 5 },
+    profileImageUrl: { type: String, trim: true },
+    roleType: { type: String, trim: true, maxlength: 40 },
+    cntxNumber: { type: String, trim: true, maxlength: 40 },
     approved: { type: Boolean, default: false },
     declined: { type: Boolean, default: false },
     declinedAt: Date,
-    // Processing status: 'processing' -> waiting for admin review
-    // 'approved' -> admin approved
-    // 'declined' -> admin declined
     status: {
       type: String,
       enum: ["processing", "approved", "declined"],
       default: "processing",
     },
     approvedAt: Date,
-    approvedBy: { type: String },
+    approvedBy: { type: String, trim: true },
   },
-  { strict: false, timestamps: true }
+  { strict: true, timestamps: true }
 );
 
 StockistSchema.set("toJSON", {
   transform: function (doc, ret) {
     delete ret.password;
-    delete ret.phone;
-    delete ret.address;
-    delete ret.licenseImageUrl;
-    delete ret.profileImageUrl;
+    delete ret.resetPasswordToken;
+    delete ret.resetPasswordExpires;
     return ret;
   },
 });

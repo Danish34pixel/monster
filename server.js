@@ -34,6 +34,10 @@ if (!loaded) {
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
+const mongoSanitize = require("express-mongo-sanitize");
+const hpp = require("hpp");
 
 // Import routes (case-robust): try multiple casings and fall back to a stub router
 
@@ -86,6 +90,44 @@ const purchasingCardRoutes = require("./routes/purchasingCard");
 const { handleUploadError } = require("./middleware/upload");
 
 const app = express();
+app.set("trust proxy", 1);
+mongoose.set("strictQuery", true);
+
+// Global security middleware
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
+app.use(
+  rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: Number(process.env.GLOBAL_RATE_LIMIT_MAX || 300),
+    standardHeaders: true,
+    legacyHeaders: false,
+  })
+);
+app.use((req, res, next) => {
+  try {
+    if (req.body && typeof req.body === "object") {
+      mongoSanitize.sanitize(req.body);
+    }
+    if (req.params && typeof req.params === "object") {
+      mongoSanitize.sanitize(req.params);
+    }
+    if (req.query && typeof req.query === "object") {
+      mongoSanitize.sanitize(req.query);
+    }
+  } catch (e) {
+    // fail closed on malformed payloads
+    return res.status(400).json({
+      success: false,
+      message: "Invalid request payload",
+    });
+  }
+  return next();
+});
+app.use(hpp());
 
 // Middleware
 app.use(express.json({ limit: "10mb" }));
@@ -101,7 +143,7 @@ const corsOptions = {
   ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "x-dev-admin"],
+  allowedHeaders: ["Content-Type", "Authorization"],
 };
 
 // Note: dynamic CORS middleware will be applied after the allowedOrigins
@@ -158,12 +200,13 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-dev-admin"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 // Debug: print allowed origins at startup
 console.log("Allowed CORS origins:", Array.from(allowedOrigins));
+global.__ALLOWED_ORIGINS__ = Array.from(allowedOrigins);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
@@ -187,22 +230,16 @@ app.use((req, res, next) => {
       "Access-Control-Allow-Methods",
       "GET,POST,PUT,PATCH,DELETE,OPTIONS"
     );
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,x-dev-admin");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   }
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
 
-// Security headers
-app.use((req, res, next) => {
-  res.setHeader("X-Content-Type-Options", "nosniff");
-  res.setHeader("X-Frame-Options", "DENY");
-  res.setHeader("X-XSS-Protection", "1; mode=block");
-  next();
-});
-
-// Serve uploaded files (images) so frontend can load them by URL
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+// Serve uploads only outside production
+if (process.env.NODE_ENV !== "production") {
+  app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+}
 
 // Request logging middleware
 app.use((req, res, next) => {

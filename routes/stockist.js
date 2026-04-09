@@ -1,76 +1,56 @@
-const express = require("express");
+﻿const express = require("express");
 const router = express.Router();
-
-// Controller
 const stockistController = require("../controllers/stockistController");
-
-// Auth middleware
 const { authenticate, isAdmin } = require("../middleware/auth");
 const {
   upload,
   handleUploadError,
   cleanupUploads,
+  validateUploadedFiles,
 } = require("../middleware/upload");
-// sanitizers removed per user request
+const { validateBody } = require("../middleware/validate");
+const { stockistCreateSchema } = require("../validation/schemas");
 
-// GET /api/stockist - list stockists
-router.get("/", stockistController.getStockists);
+router.get("/", authenticate, stockistController.getStockists);
+router.get("/:id", authenticate, stockistController.getStockistById);
 
-// GET /api/stockist/:id - get single stockist by id
-router.get("/:id", stockistController.getStockistById);
+router.post("/", authenticate, validateBody(stockistCreateSchema), stockistController.createStockist);
 
-// POST /api/stockist - create a new stockist (any authenticated user)
-router.post("/", authenticate, stockistController.createStockist);
-
-// POST /api/stockist/register - public registration for stockists (returns token)
 router.post(
   "/register",
   upload.fields([
     { name: "profileImage", maxCount: 1 },
     { name: "drugLicenseImage", maxCount: 1 },
   ]),
+  validateUploadedFiles,
   stockistController.registerStockist,
   handleUploadError,
   cleanupUploads
 );
 
-// POST /api/stockist/upload-license - upload license image (multipart) and return Cloudinary URL
 router.post(
   "/upload-license",
   authenticate,
   upload.single("licenseImage"),
+  validateUploadedFiles,
   stockistController.uploadLicenseImage,
   handleUploadError,
   cleanupUploads
 );
 
-// POST /api/stockist/upload-profile - upload profile image
 router.post(
   "/upload-profile",
   authenticate,
   upload.single("profileImage"),
+  validateUploadedFiles,
   stockistController.uploadProfileImage,
   handleUploadError,
   cleanupUploads
 );
 
-// POST /api/stockist/verify-password - verify password and return safe stockist data
-router.post("/verify-password", stockistController.verifyStockistPassword);
+router.post("/verify-password", authenticate, stockistController.verifyStockistPassword);
 
-// PATCH /api/stockist/:id/approve - admin-only: mark a stockist as approved
-router.patch(
-  "/:id/approve",
-  authenticate,
-  isAdmin,
-  stockistController.approveStockist
-);
-
-// PATCH /api/stockist/:id/decline - admin-only: mark a stockist as declined
-router.patch(
-  "/:id/decline",
-  authenticate,
-  isAdmin,
-  stockistController.declineStockist
-);
+router.patch("/:id/approve", authenticate, isAdmin, stockistController.approveStockist);
+router.patch("/:id/decline", authenticate, isAdmin, stockistController.declineStockist);
 
 module.exports = router;

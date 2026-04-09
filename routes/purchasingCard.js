@@ -4,9 +4,9 @@ const User = require("../models/User");
 const Stockist = require("../models/Stockist");
 const Purchaser = require("../models/Purchaser");
 const PurchaseCardRequest = require("../models/PurchaseCardRequest");
-const { authenticate, isAdmin } = require("../middleware/auth");
+const { authenticate } = require("../middleware/auth");
 const { sendMail } = require("../utils/mailer");
-const jwt = require("jsonwebtoken");
+const { verifyAccessToken } = require("../utils/tokenService");
 
 // In-memory SSE clients registry: stockistId -> array of response objects
 const sseClients = new Map();
@@ -26,8 +26,6 @@ router.post("/request", authenticate, async (req, res) => {
       requesterId: requester && requester._id,
       email: requester && requester.email,
     });
-    console.debug("Request body:", req.body);
-
     const {
       stockistIds,
       purchaserId,
@@ -151,7 +149,7 @@ router.get("/stream", async (req, res) => {
     if (!token) return res.status(401).send("Missing token");
     let decoded;
     try {
-      decoded = jwt.verify(token, process.env.JWT_SECRET || "supersecretkey");
+      decoded = verifyAccessToken(token);
     } catch (e) {
       return res.status(401).send("Invalid token");
     }
@@ -160,11 +158,20 @@ router.get("/stream", async (req, res) => {
     if (!stockistId) return res.status(401).send("Invalid token payload");
 
     // Set SSE headers
+    const origin = req.headers.origin;
+    const allowedOrigins = Array.isArray(global.__ALLOWED_ORIGINS__)
+      ? global.__ALLOWED_ORIGINS__
+      : [];
+    const allowOrigin = origin && allowedOrigins.includes(origin) ? origin : null;
+    if (!allowOrigin) {
+      return res.status(403).send("Origin not allowed");
+    }
+
     res.writeHead(200, {
       Connection: "keep-alive",
       "Cache-Control": "no-cache",
       "Content-Type": "text/event-stream",
-      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Origin": allowOrigin,
       "Access-Control-Allow-Credentials": "true",
     });
 
@@ -369,7 +376,7 @@ router.post("/approve/:requestId", authenticate, async (req, res) => {
 
 // Public status endpoint to let a requester poll approval progress
 // GET /api/purchasing-card/status/:id
-router.get("/status/:id", async (req, res) => {
+router.get("/status/:id", authenticate, async (req, res) => {
   try {
     const { id } = req.params;
     const reqDoc = await PurchaseCardRequest.findById(id).lean();
@@ -377,6 +384,19 @@ router.get("/status/:id", async (req, res) => {
       return res
         .status(404)
         .json({ success: false, message: "Request not found" });
+    const isAdmin = req.user && req.user.role === "admin";
+    const isRequester =
+      reqDoc.requester && String(reqDoc.requester) === String(req.user._id);
+    const isStockist =
+      Array.isArray(reqDoc.stockists) &&
+      reqDoc.stockists.some((sid) => String(sid) === String(req.user._id));
+
+    if (!isAdmin && !isRequester && !isStockist) {
+      return res
+        .status(403)
+        .json({ success: false, message: "Not authorized to view request status" });
+    }
+
     return res.json({
       success: true,
       data: {

@@ -1,14 +1,11 @@
-const express = require("express");
+﻿const express = require("express");
 const router = express.Router();
 const medicineController = require("../controllers/medicineController");
-
 const { authenticate, isAdmin } = require("../middleware/auth");
+const { validateBody } = require("../middleware/validate");
+const { medicineCreateSchema } = require("../validation/schemas");
 
-// GET /api/medicine - list medicines
-router.get("/", medicineController.getMedicines);
-
-// POST /api/medicine/quick - quick create (admin only)
-// Allow public quick-create for medicines (no auth) per developer request.
-router.post("/quick", medicineController.createMedicineQuick);
+router.get("/", authenticate, medicineController.getMedicines);
+router.post("/quick", authenticate, isAdmin, validateBody(medicineCreateSchema), medicineController.createMedicineQuick);
 
 module.exports = router;

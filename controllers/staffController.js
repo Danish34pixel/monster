@@ -1,4 +1,4 @@
-const Staff = require("../models/Staff");
+﻿const Staff = require("../models/Staff");
 const mongoose = require("mongoose");
 const {
   uploadToCloudinary,
@@ -6,62 +6,58 @@ const {
 } = require("../config/cloudinary");
 const fs = require("fs");
 
-// Create staff with image and aadharCard (uploads to Cloudinary)
+function toSafeStaff(staff) {
+  return {
+    _id: staff._id,
+    fullName: staff.fullName,
+    contact: staff.contact,
+    email: staff.email,
+    image: staff.image,
+    stockist: staff.stockist,
+    createdAt: staff.createdAt,
+    updatedAt: staff.updatedAt,
+  };
+}
+
 exports.createStaff = async (req, res) => {
   try {
     const { fullName, address, contact, email } = req.body;
-
-    // auth: ensure user is authenticated and has stockist role (or admin)
     const reqUser = req.user;
+
     if (!reqUser) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Authentication required." });
+      return res.status(401).json({ success: false, message: "Authentication required." });
     }
 
-    // Only stockists or admins may create staff.
-    const isAuthorizedRole =
-      (reqUser && (reqUser.role === "stockist" || reqUser.role === "admin")) ||
-      (reqUser &&
-        reqUser.constructor &&
-        reqUser.constructor.modelName === "Stockist");
-        
+    const isAuthorizedRole = reqUser.role === "stockist" || reqUser.role === "admin";
     if (!isAuthorizedRole) {
-      return res.status(403).json({
-        success: false,
-        message: "Only stockists or admins can create staff.",
-      });
+      return res.status(403).json({ success: false, message: "Only stockists or admins can create staff." });
     }
 
-    if (!req.files || !req.files["image"] || !req.files["aadharCard"]) {
-      return res.status(400).json({
-        success: false,
-        message: "Image and Aadhar card are required.",
-      });
+    if (!req.files || !req.files.image || !req.files.aadharCard) {
+      return res.status(400).json({ success: false, message: "Image and Aadhar card are required." });
     }
 
-    // Upload files to Cloudinary
-    const imageFile = req.files["image"][0];
-    const aadharFile = req.files["aadharCard"][0];
+    const imageFile = req.files.image[0];
+    const aadharFile = req.files.aadharCard[0];
 
-    const uploadedImage = await uploadToCloudinary(imageFile, "medtek/staff");
-    const uploadedAadhar = await uploadToCloudinary(aadharFile, "medtek/staff");
+    const [uploadedImage, uploadedAadhar] = await Promise.all([
+      uploadToCloudinary(imageFile, "medtek/staff"),
+      uploadToCloudinary(aadharFile, "medtek/staff"),
+    ]);
 
-    // Remove local temp files (best-effort)
     try {
-      if (imageFile && imageFile.path) fs.unlinkSync(imageFile.path);
-      if (aadharFile && aadharFile.path) fs.unlinkSync(aadharFile.path);
+      if (imageFile?.path) fs.unlinkSync(imageFile.path);
+      if (aadharFile?.path) fs.unlinkSync(aadharFile.path);
     } catch (e) {
-      console.warn("Failed to delete temp files:", e);
+      // best effort cleanup
     }
 
-    // The owning stockist: if admin, use the provided stockist id, otherwise use current user
     let owningStockistId = reqUser._id;
-    if (reqUser.role === "admin" && req.body.stockist) {
+    if (reqUser.role === "admin" && req.body.stockist && mongoose.Types.ObjectId.isValid(req.body.stockist)) {
       owningStockistId = req.body.stockist;
     }
 
-    const staff = new Staff({
+    const staff = await Staff.create({
       fullName,
       address,
       contact,
@@ -70,125 +66,80 @@ exports.createStaff = async (req, res) => {
       aadharCard: uploadedAadhar.url,
       imagePublicId: uploadedImage.public_id,
       aadharPublicId: uploadedAadhar.public_id,
-      // record ownership (stockist user creating the staff or admin-specified stockist)
       stockist: owningStockistId,
     });
 
-    await staff.save();
-    res.status(201).json({ success: true, data: staff });
+    return res.status(201).json({ success: true, data: toSafeStaff(staff) });
   } catch (err) {
-    console.error("staffController.createStaff error:", err);
-    res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: "Failed to create staff" });
   }
 };
 
 exports.getStaffs = async (req, res) => {
   try {
-    // If query ?stockist=true or ?stockist=<id> passed, limit to that stockist
     const q = req.query || {};
     const filter = {};
-    if (q.stockist) {
-      // allow 'me' to mean current authenticated stockist
-      if (q.stockist === "me") {
-        if (req.user) {
-          filter.stockist = req.user._id;
-        } else {
-          // If 'me' requested but no user, return empty list or error instead of crashing
-          return res.json({ success: true, data: [] });
-        }
-      } else {
-        // Validate that q.stockist is a valid ObjectId string
-        if (mongoose.Types.ObjectId.isValid(q.stockist)) {
-          filter.stockist = q.stockist;
-        } else {
-          // If invalid ID passed, return empty instead of 500
-          console.warn(`getStaffs: invalid stockist ID passed: ${q.stockist}`);
-          return res.json({ success: true, data: [] });
-        }
-      }
+
+    if (q.stockist === "me") {
+      filter.stockist = req.user._id;
+    } else if (q.stockist && mongoose.Types.ObjectId.isValid(q.stockist)) {
+      filter.stockist = q.stockist;
     }
 
-    // Ensure MongoDB connection is available
-    try {
-      if (!mongoose.connection || mongoose.connection.readyState !== 1) {
-        console.error(
-          "getStaffs: MongoDB not connected, readyState=",
-          mongoose.connection && mongoose.connection.readyState
-        );
-        return res
-          .status(503)
-          .json({ success: false, message: "Database unavailable" });
-      }
-    } catch (e) {
-      console.error("getStaffs: connection check failed", e && e.message);
-    }
+    const data = await Staff.find(filter)
+      .select("fullName contact email image stockist createdAt updatedAt")
+      .sort({ createdAt: -1 })
+      .lean();
 
-    console.debug("getStaffs -> filter", filter, "query", q);
-    const data = await Staff.find(filter).sort({ createdAt: -1 }).lean().exec();
-    res.json({ success: true, data });
+    return res.json({ success: true, data });
   } catch (err) {
-    console.error("getStaffs error:", err && err.stack ? err.stack : err);
-    // If DEBUG_API is enabled the global error handler will include stack.
-    res
-      .status(500)
-      .json({ success: false, message: "Failed to load staff list" });
+    return res.status(500).json({ success: false, message: "Failed to load staff list" });
   }
 };
 
 exports.getStaff = async (req, res) => {
   try {
-    const { id } = req.params;
-    const staff = await Staff.findById(id);
-    if (!staff)
-      return res
-        .status(404)
-        .json({ success: false, message: "Staff not found." });
-    res.json({ success: true, data: staff });
+    const staff = await Staff.findById(req.params.id).select("fullName contact email image stockist createdAt updatedAt");
+    if (!staff) {
+      return res.status(404).json({ success: false, message: "Staff not found." });
+    }
+
+    const isAdmin = req.user.role === "admin";
+    const isOwner = staff.stockist && String(staff.stockist) === String(req.user._id);
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ success: false, message: "Not authorized" });
+    }
+
+    return res.json({ success: true, data: toSafeStaff(staff) });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: "Failed to fetch staff" });
   }
 };
 
 exports.deleteStaff = async (req, res) => {
   try {
-    const { id } = req.params;
-    const staff = await Staff.findById(id);
-    if (!staff)
-      return res
-        .status(404)
-        .json({ success: false, message: "Staff not found." });
-
-    // Authorization: allow deletion if user is admin or the owning stockist
-    const reqUser = req.user;
-    if (!reqUser) {
-      return res
-        .status(401)
-        .json({ success: false, message: "Authentication required." });
+    const staff = await Staff.findById(req.params.id);
+    if (!staff) {
+      return res.status(404).json({ success: false, message: "Staff not found." });
     }
 
-    const isOwner =
-      staff.stockist && String(staff.stockist) === String(reqUser._id);
-    if (reqUser.role !== "admin" && !isOwner) {
-      return res.status(403).json({
-        success: false,
-        message: "Not authorized to delete this staff.",
-      });
+    const isAdmin = req.user.role === "admin";
+    const isOwner = staff.stockist && String(staff.stockist) === String(req.user._id);
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ success: false, message: "Not authorized to delete this staff." });
     }
 
-    // proceed to delete
-    await Staff.findByIdAndDelete(id);
+    await Staff.findByIdAndDelete(req.params.id);
 
-    // Remove images from Cloudinary if public ids exist
     try {
       if (staff.imagePublicId) await deleteFromCloudinary(staff.imagePublicId);
-      if (staff.aadharPublicId)
-        await deleteFromCloudinary(staff.aadharPublicId);
+      if (staff.aadharPublicId) await deleteFromCloudinary(staff.aadharPublicId);
     } catch (e) {
-      console.warn("Failed to delete images from Cloudinary:", e);
+      // cloudinary cleanup best effort
     }
 
-    res.json({ success: true, message: "Staff deleted." });
+    return res.json({ success: true, message: "Staff deleted." });
   } catch (err) {
-    res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: "Failed to delete staff" });
   }
 };

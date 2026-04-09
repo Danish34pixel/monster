@@ -1,49 +1,104 @@
-const multer = require("multer");
+﻿const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+let fileTypeModulePromise;
 
-// Create uploads directory if it doesn't exist
-const uploadDir = "uploads";
+async function detectFileType(filePath) {
+  // file-type v19+ is ESM-only, so load it lazily from CommonJS.
+  if (!fileTypeModulePromise) {
+    fileTypeModulePromise = import("file-type");
+  }
+  const mod = await fileTypeModulePromise;
+  return mod.fileTypeFromFile(filePath);
+}
+
+const uploadDir = path.join(__dirname, "..", "uploads");
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// Configure storage
+const ALLOWED_MIME_TYPES = new Set([
+  "image/jpeg",
+  "image/png",
+  "application/pdf",
+]);
+
+const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".pdf"]);
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    // Generate unique filename with timestamp
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(
-      null,
-      file.fieldname + "-" + uniqueSuffix + path.extname(file.originalname)
-    );
+    cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname).toLowerCase()}`);
   },
 });
 
-// File filter for images only
 const fileFilter = (req, file, cb) => {
-  // Check file type
-  if (file.mimetype.startsWith("image/")) {
-    cb(null, true);
-  } else {
-    cb(new Error("Only image files are allowed!"), false);
+  const ext = path.extname(file.originalname || "").toLowerCase();
+  if (!ALLOWED_EXTENSIONS.has(ext)) {
+    return cb(new Error("Unsupported file extension."), false);
+  }
+
+  if (!ALLOWED_MIME_TYPES.has(file.mimetype)) {
+    return cb(new Error("Unsupported file type."), false);
+  }
+
+  return cb(null, true);
+};
+
+const upload = multer({
+  storage,
+  fileFilter,
+  limits: {
+    fileSize: 5 * 1024 * 1024,
+    files: 4,
+  },
+});
+
+function collectFiles(req) {
+  const files = [];
+  if (req.file) files.push(req.file);
+  if (req.files) {
+    Object.values(req.files).forEach((val) => {
+      if (Array.isArray(val)) files.push(...val);
+      else if (val) files.push(val);
+    });
+  }
+  return files;
+}
+
+async function removeFileIfExists(filePath) {
+  try {
+    if (filePath && fs.existsSync(filePath)) {
+      await fs.promises.unlink(filePath);
+    }
+  } catch (err) {
+    // best effort cleanup
+  }
+}
+
+const validateUploadedFiles = async (req, res, next) => {
+  try {
+    const files = collectFiles(req);
+    for (const file of files) {
+      const detected = await detectFileType(file.path);
+      const detectedMime = detected && detected.mime;
+      if (!detectedMime || !ALLOWED_MIME_TYPES.has(detectedMime)) {
+        await removeFileIfExists(file.path);
+        return res.status(400).json({
+          success: false,
+          message: "Invalid file content. Only JPG, PNG, and PDF are allowed.",
+        });
+      }
+    }
+    return next();
+  } catch (error) {
+    return next(error);
   }
 };
 
-// Configure multer
-const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-    files: 4, // allow multiple files per request (image + aadharCard)
-  },
-});
-
-// Error handling middleware for multer
 const handleUploadError = (error, req, res, next) => {
   if (error instanceof multer.MulterError) {
     if (error.code === "LIMIT_FILE_SIZE") {
@@ -55,7 +110,7 @@ const handleUploadError = (error, req, res, next) => {
     if (error.code === "LIMIT_FILE_COUNT") {
       return res.status(400).json({
         success: false,
-        message: "Too many files. Only 1 file allowed.",
+        message: "Too many files uploaded.",
       });
     }
     return res.status(400).json({
@@ -64,56 +119,33 @@ const handleUploadError = (error, req, res, next) => {
     });
   }
 
-  if (error.message === "Only image files are allowed!") {
+  if (
+    error.message === "Unsupported file type." ||
+    error.message === "Unsupported file extension."
+  ) {
     return res.status(400).json({
       success: false,
-      message: "Only image files (JPG, PNG, GIF) are allowed.",
+      message: "Only JPG, PNG, and PDF files are allowed.",
     });
   }
 
-  next(error);
+  return next(error);
 };
 
-// Clean up uploaded files after processing
 const cleanupUploads = (req, res, next) => {
-  // Clean up uploaded files after response is sent
   res.on("finish", () => {
-    // single-file field
-    if (req.file && req.file.path) {
-      fs.unlink(req.file.path, (err) => {
-        if (err) console.error("Error deleting uploaded file:", err);
-      });
-    }
-
-    // multiple fields (upload.fields) stored in req.files as arrays
-    if (req.files) {
-      const removeIf = (f) => {
-        try {
-          if (f && f.path) fs.unlinkSync(f.path);
-        } catch (err) {
-          // log and continue
-          console.error(
-            "Error deleting uploaded file (req.files):",
-            err && err.message
-          );
-        }
-      };
-
-      Object.keys(req.files).forEach((key) => {
-        const val = req.files[key];
-        if (Array.isArray(val)) {
-          val.forEach(removeIf);
-        } else if (val && val.path) {
-          removeIf(val);
-        }
-      });
-    }
+    const files = collectFiles(req);
+    files.forEach((f) => {
+      if (!f || !f.path) return;
+      fs.unlink(f.path, () => {});
+    });
   });
-  next();
+  return next();
 };
 
 module.exports = {
   upload,
+  validateUploadedFiles,
   handleUploadError,
   cleanupUploads,
 };

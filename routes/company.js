@@ -1,13 +1,11 @@
-const express = require("express");
+﻿const express = require("express");
 const router = express.Router();
 const companyController = require("../controllers/companyController");
 const { authenticate, isAdmin } = require("../middleware/auth");
+const { validateBody } = require("../middleware/validate");
+const { companyCreateSchema } = require("../validation/schemas");
 
-// GET /api/company - list companies
-router.get("/", companyController.getCompanies);
-
-// POST /api/company - create a new company (admin only)
-// Allow public create for companies (no auth) per developer request.
-router.post("/", companyController.createCompany);
+router.get("/", authenticate, companyController.getCompanies);
+router.post("/", authenticate, isAdmin, validateBody(companyCreateSchema), companyController.createCompany);
 
 module.exports = router;

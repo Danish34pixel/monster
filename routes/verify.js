@@ -1,13 +1,13 @@
-const express = require("express");
+﻿const express = require("express");
 const router = express.Router();
-const { upload } = require("../middleware/upload");
+const { upload, validateUploadedFiles } = require("../middleware/upload");
+const { authenticate } = require("../middleware/auth");
 const {
   verifyDocument,
   verifyDrugLicense,
 } = require("../controllers/documentVerificationController");
 
-// Accept single file field named 'document'
-router.post("/document", upload.single("document"), verifyDocument);
-router.post("/drug-license", upload.single("document"), verifyDrugLicense);
+router.post("/document", authenticate, upload.single("document"), validateUploadedFiles, verifyDocument);
+router.post("/drug-license", authenticate, upload.single("document"), validateUploadedFiles, verifyDrugLicense);
 
 module.exports = router;

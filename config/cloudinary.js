@@ -9,7 +9,8 @@ const crypto = require("crypto");
 // Cloudinary properly; this fallback only avoids a 500 that masks the
 // real problem in logs.
 const CLOUDINARY_CONFIGURED = Boolean(
-  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_DISABLED !== "1" &&
+    process.env.CLOUDINARY_CLOUD_NAME &&
     process.env.CLOUDINARY_API_KEY &&
     process.env.CLOUDINARY_API_SECRET
 );
@@ -21,9 +22,7 @@ if (CLOUDINARY_CONFIGURED) {
     api_secret: process.env.CLOUDINARY_API_SECRET,
   });
 } else {
-  console.warn(
-    "Cloudinary not configured: CLOUDINARY_CLOUD_NAME/API_KEY/SECRET missing. Using local-file fallback for uploads."
-  );
+  console.warn("Cloudinary not configured: CLOUDINARY_CLOUD_NAME/API_KEY/SECRET missing.");
 }
 
 // Upload image to Cloudinary or fallback to local path when Cloudinary is
@@ -35,6 +34,9 @@ const uploadToCloudinary = async (file, folder = "medtek") => {
   }
 
   if (!CLOUDINARY_CONFIGURED) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error("Cloudinary is not configured in production");
+    }
     // Return a file:// style URL to the uploaded local file so the rest of
     // the code can continue. Note: in production you should serve uploads
     // from a persistent store or configure Cloudinary.
