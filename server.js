@@ -1,5 +1,3 @@
-// Load environment variables. Resolve files relative to this file's
-const isDevelopment = process.env.NODE_ENV === "development";
 // directory first (Backend/), then fall back to the process cwd. This
 // avoids issues when nodemon or scripts run from the repository root.
 const dotenv = require("dotenv");
@@ -31,6 +29,7 @@ if (!loaded) {
     "No config.env or .env file found in Backend or current working directory. Environment variables may be missing."
   );
 }
+const isDevelopment = process.env.NODE_ENV === "development" || process.env.NODE_ENV !== "production";
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -131,6 +130,23 @@ app.use(
 // Middleware
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+// Express 5 Compatibility Shim
+// Express 5 makes req.query/req.params/req.body read-only getters in some contexts.
+// express-mongo-sanitize needs to mutate them, so we make them writable here.
+app.use((req, res, next) => {
+  ['query', 'body', 'params'].forEach((prop) => {
+    if (req[prop]) {
+      Object.defineProperty(req, prop, {
+        value: req[prop],
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+    }
+  });
+  next();
+});
+
 app.use(
   mongoSanitize({
     replaceWith: "_",

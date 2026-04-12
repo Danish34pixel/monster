@@ -30,7 +30,10 @@ exports.createStaff = async (req, res) => {
 
     const isAuthorizedRole = reqUser.role === "stockist" || reqUser.role === "admin";
     if (!isAuthorizedRole) {
-      return res.status(403).json({ success: false, message: "Only stockists or admins can create staff." });
+      return res.status(403).json({ 
+        success: false, 
+        message: `Your current role (${reqUser.role}) is not authorized to manage staff. Only stockists and admins can use this administrative endpoint.` 
+      });
     }
 
     const normalizedEmail = email ? String(email).toLowerCase().trim() : undefined;

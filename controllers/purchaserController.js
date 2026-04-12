@@ -137,11 +137,8 @@ exports.get = async (req, res) => {
     const isAdmin = req.user?.role === "admin";
     const isSelf = req.user?.role === "purchaser" && String(req.user?._id) === String(purchaser._id);
     const isOwner = purchaser.createdBy && String(purchaser.createdBy) === String(req.user?._id);
-    if (!isAdmin && !isOwner && !isSelf) {
-    const isSelf = String(purchaser._id) === String(req.user?._id);
-    const isOwner = purchaser.createdBy && String(purchaser.createdBy) === String(req.user?._id);
 
-    if (!isAdmin && !isSelf && !isOwner) {
+    if (!isAdmin && !isOwner && !isSelf) {
       return res.status(403).json({ success: false, message: "Not authorized" });
     }
 

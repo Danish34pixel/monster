@@ -97,6 +97,8 @@ router.post("/request", authenticate, async (req, res) => {
       }).catch((e) => {
         console.warn("Failed to flag purchasingCardRequested:", e && e.message);
       });
+    }
+
     // Mark user session as requested for quick UI feedback
     if (requester && typeof requester.save === "function") {
       requester.purchasingCardRequested = true;
