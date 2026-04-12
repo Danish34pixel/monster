@@ -276,6 +276,29 @@ router.get("/me", authenticate, async (req, res) => {
   });
 });
 
+router.get("/status/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!id || id.length !== 24) return res.status(400).json({ success: false, message: "Invalid ID" });
+
+    const stockist = await Stockist.findById(id).select("approved declined status").lean();
+    if (stockist) return res.json({ success: true, data: stockist });
+
+    const user = await User.findById(id).select("approved declined status").lean();
+    if (user) return res.json({ success: true, data: user });
+
+    const purchaser = await Purchaser.findById(id).select("approved verified status").lean();
+    if (purchaser) return res.json({ success: true, data: { approved: purchaser.approved || purchaser.verified, declined: false, status: purchaser.approved ? "approved" : "processing" } });
+
+    const staff = await Staff.findById(id).select("approved status").lean();
+    if (staff) return res.json({ success: true, data: { approved: staff.approved, declined: false, status: staff.approved ? "approved" : "processing" } });
+
+    return res.status(404).json({ success: false, message: "Record not found" });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Server error" });
+  }
+});
+
 router.post("/forgot-password", validateBody(forgotPasswordSchema), forgotPassword);
 router.post("/reset-password", validateBody(resetPasswordSchema), resetPassword);
 

@@ -1,4 +1,4 @@
-﻿const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 const bcrypt = require("bcryptjs");
 const Stockist = require("../models/Stockist");
 const User = require("../models/User");
@@ -194,6 +194,7 @@ exports.registerStockist = async (req, res) => {
     if (String(err.message || "").includes("already in use")) {
       return res.status(400).json({ success: false, message: err.message });
     }
+    console.error("Stockist registration failed:", err);
     return res.status(500).json({ success: false, message: "Failed to register stockist" });
   }
 };
