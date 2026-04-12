@@ -1,4 +1,4 @@
-﻿const User = require("../models/User");
+const User = require("../models/User");
 const Stockist = require("../models/Stockist");
 const Purchaser = require("../models/Purchaser");
 const { verifyAccessToken } = require("../utils/tokenService");
@@ -32,6 +32,15 @@ async function resolveUserFromToken(decoded) {
 
 const authenticate = async (req, res, next) => {
   try {
+    // Development-only bypass for local admin testing from frontend.
+    if (
+      process.env.NODE_ENV !== "production" &&
+      String(req.headers["x-dev-admin"] || "") === "1"
+    ) {
+      req.user = { _id: "000000000000000000000000", role: "admin" };
+      return next();
+    }
+
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({

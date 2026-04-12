@@ -29,13 +29,24 @@ function buildStockistPayload(body = {}) {
     cntxNumber: body.cntxNumber,
   };
 
-  if (body.address && typeof body.address === "object") {
-    payload.address = {
-      street: body.address.street,
-      city: body.address.city,
-      state: body.address.state,
-      pincode: body.address.pincode,
-    };
+  if (body.address) {
+    if (typeof body.address === "object") {
+      payload.address = {
+        street: body.address.street,
+        city: body.address.city,
+        state: body.address.state,
+        pincode: body.address.pincode,
+      };
+    } else if (typeof body.address === "string") {
+      // Fallback for legacy string format: "Street, City, State - Pincode"
+      const parts = body.address.split(",");
+      payload.address = {
+        street: parts[0]?.trim() || "",
+        city: parts[1]?.trim() || "",
+        state: parts[2]?.split("-")[0]?.trim() || "",
+        pincode: parts[2]?.split("-")[1]?.trim() || "",
+      };
+    }
   }
 
   if (body.dob) {
