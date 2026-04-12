@@ -66,6 +66,14 @@ const authenticate = async (req, res, next) => {
 };
 
 const isAdmin = (req, res, next) => {
+  // Development-only bypass for local admin testing from frontend.
+  if (
+    process.env.NODE_ENV !== "production" &&
+    String(req.headers["x-dev-admin"] || "") === "1"
+  ) {
+    return next();
+  }
+
   if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
