@@ -1,4 +1,4 @@
-﻿const express = require("express");
+const express = require("express");
 const router = express.Router();
 const stockistController = require("../controllers/stockistController");
 const { authenticate, isAdmin } = require("../middleware/auth");
@@ -11,7 +11,7 @@ const {
 const { validateBody } = require("../middleware/validate");
 const { stockistCreateSchema } = require("../validation/schemas");
 
-router.get("/", authenticate, stockistController.getStockists);
+router.get("/", stockistController.getStockists);
 router.get("/:id", authenticate, stockistController.getStockistById);
 
 router.post("/", authenticate, validateBody(stockistCreateSchema), stockistController.createStockist);

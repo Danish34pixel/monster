@@ -1,4 +1,4 @@
-﻿const Purchaser = require("../models/Purchaser");
+const Purchaser = require("../models/Purchaser");
 const bcrypt = require("bcryptjs");
 const fs = require("fs");
 const { uploadToCloudinary } = require("../config/cloudinary");
@@ -128,8 +128,10 @@ exports.get = async (req, res) => {
     }
 
     const isAdmin = req.user?.role === "admin";
+    const isSelf = String(purchaser._id) === String(req.user?._id);
     const isOwner = purchaser.createdBy && String(purchaser.createdBy) === String(req.user?._id);
-    if (!isAdmin && !isOwner) {
+
+    if (!isAdmin && !isSelf && !isOwner) {
       return res.status(403).json({ success: false, message: "Not authorized" });
     }
 
@@ -147,9 +149,10 @@ exports.delete = async (req, res) => {
     }
 
     const isAdmin = req.user?.role === "admin";
+    const isSelf = String(purchaser._id) === String(req.user?._id);
     const isOwner = purchaser.createdBy && String(purchaser.createdBy) === String(req.user?._id);
 
-    if (!isAdmin && !isOwner) {
+    if (!isAdmin && !isSelf && !isOwner) {
       return res.status(403).json({ success: false, message: "Not authorized to delete this purchaser" });
     }
 

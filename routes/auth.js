@@ -383,8 +383,15 @@ router.post(
       }
 
       const payload = parse.data;
-      const existing = await Purchaser.findOne({ email: payload.email.toLowerCase() }).lean();
-      if (existing) {
+      const email = payload.email.toLowerCase();
+      const [userEx, stockistEx, purchaserEx, staffEx] = await Promise.all([
+        User.findOne({ email }).lean(),
+        Stockist.findOne({ email }).lean(),
+        Purchaser.findOne({ email }).lean(),
+        Staff.findOne({ email }).lean(),
+      ]);
+
+      if (userEx || stockistEx || purchaserEx || staffEx) {
         return res.status(409).json({ success: false, message: "Email already registered" });
       }
 
@@ -396,7 +403,7 @@ router.post(
       const hashedPassword = await bcrypt.hash(payload.password, 12);
       const purchaser = await Purchaser.create({
         fullName: payload.fullName,
-        email: payload.email.toLowerCase(),
+        email,
         address: payload.address,
         contactNo: payload.contactNo,
         password: hashedPassword,

@@ -1,4 +1,4 @@
-﻿const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 
 const PurchaserSchema = new mongoose.Schema(
   {
@@ -22,6 +22,7 @@ const PurchaserSchema = new mongoose.Schema(
     photoPublicId: { type: String, trim: true },
     approved: { type: Boolean, default: false },
     verified: { type: Boolean, default: false },
+    purchasingCardRequested: { type: Boolean, default: false },
     createdBy: {
       type: require("mongoose").Schema.Types.ObjectId,
       ref: "User",
