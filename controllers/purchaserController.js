@@ -107,7 +107,7 @@ exports.list = async (req, res) => {
   try {
     const query = req.user?.role === "admin" ? {} : { createdBy: req.user._id };
     const purchasers = await Purchaser.find(query)
-      .select("fullName approved verified createdBy createdAt updatedAt")
+      .select("fullName email contactNo address photo aadharImage approved verified createdBy createdAt updatedAt")
       .sort({ createdAt: -1 })
       .lean();
 
@@ -120,7 +120,7 @@ exports.list = async (req, res) => {
 exports.get = async (req, res) => {
   try {
     const purchaser = await Purchaser.findById(req.params.id)
-      .select("fullName approved verified createdBy createdAt updatedAt")
+      .select("fullName email contactNo address photo aadharImage approved verified createdBy createdAt updatedAt")
       .lean();
 
     if (!purchaser) {

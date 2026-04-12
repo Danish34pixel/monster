@@ -85,9 +85,15 @@ router.post("/request", authenticate, async (req, res) => {
 
     console.debug("PurchaseCardRequest saved:", { id: reqDoc._id });
 
-    // Mark user as requested for quick UI feedback
-    requester.purchasingCardRequested = true;
-    await requester.save();
+    // Mark requester as having an active request (best-effort).
+    // `req.user` is a plain object from auth middleware, so it has no `.save()`.
+    if (requester?._id && (requester.role === "user" || requester.role === "admin")) {
+      await User.findByIdAndUpdate(requester._id, {
+        $set: { purchasingCardRequested: true },
+      }).catch((e) => {
+        console.warn("Failed to flag purchasingCardRequested:", e && e.message);
+      });
+    }
 
     // Notify selected stockists via email (best-effort). Do not await each
     // sendMail serially to avoid long blocking operations; run them and

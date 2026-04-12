@@ -11,7 +11,9 @@ const {
 const { validateBody } = require("../middleware/validate");
 const { stockistCreateSchema } = require("../validation/schemas");
 
-router.get("/", authenticate, stockistController.getStockists);
+// Public list endpoint so signup/discovery screens can load stockists
+// without requiring a logged-in token.
+router.get("/", stockistController.getStockists);
 router.get("/:id", authenticate, stockistController.getStockistById);
 
 router.post("/", authenticate, validateBody(stockistCreateSchema), stockistController.createStockist);
