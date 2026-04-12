@@ -210,7 +210,8 @@ global.__ALLOWED_ORIGINS__ = Array.from(allowedOrigins);
 
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  let allowed = !!(origin && allowedOrigins.has(origin));
+  const noOrigin = !origin;
+  let allowed = noOrigin || !!(origin && allowedOrigins.has(origin));
   if (!allowed && isDevelopment) {
     // Mirror the same local LAN allowlist as the CORS handler above
     try {
@@ -223,7 +224,7 @@ app.use((req, res, next) => {
   }
   // Debug: log incoming origin and whether it's allowed
   console.log(`CORS: incoming Origin=${origin} allowed=${allowed}`);
-  if (allowed) {
+  if (allowed && origin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader(
@@ -366,22 +367,22 @@ const connectDB = async () => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
+const HOST = process.env.HOST || "0.0.0.0";
 
 const startServer = async () => {
   try {
     await connectDB();
 
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
-      console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+    app.listen(PORT, HOST, () => {
+      console.log(`Server running on ${HOST}:${PORT}`);
+      console.log(`Environment: ${process.env.NODE_ENV}`);
+      console.log(`Health check: http://localhost:${PORT}/health`);
     });
   } catch (error) {
     console.error("❌ Failed to start server:", error);
     process.exit(1);
   }
 };
-
 // Handle unhandled promise rejections
 process.on("unhandledRejection", (err) => {
   console.error("Unhandled Promise Rejection:", err);
@@ -395,3 +396,6 @@ process.on("uncaughtException", (err) => {
 });
 
 startServer();
+
+
+
