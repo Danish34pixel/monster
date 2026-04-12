@@ -5,7 +5,7 @@ exports.getMedicines = async (req, res) => {
   try {
     let { page = 1, limit = 10 } = req.query;
     page = Number.parseInt(page, 10) || 1;
-    limit = Math.min(100, Number.parseInt(limit, 10) || 10);
+    limit = Math.min(1000, Number.parseInt(limit, 10) || 10);
 
     const totalMedicines = await Medicine.countDocuments();
     const data = await Medicine.find()

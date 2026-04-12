@@ -92,6 +92,7 @@ const staffRoutes = tryRequireRoute("staff");
 const userRoutes = tryRequireRoute("user");
 const migrationRoutes = tryRequireRoute("migration");
 const purchasingCardRoutes = require("./routes/purchasingCard");
+const demandRoutes = require("./routes/demand");
 
 // Import middleware
 const { handleUploadError } = require("./middleware/upload");
@@ -273,6 +274,8 @@ app.use("/api/staff", staffRoutes);
 app.use("/api/migration", migrationRoutes);
 // Mount purchasing card request/grant endpoints
 app.use("/api/purchasing-card", purchasingCardRoutes);
+// Mount demand routes
+app.use("/api/demand", demandRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

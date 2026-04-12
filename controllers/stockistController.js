@@ -88,7 +88,7 @@ exports.getStockists = async (req, res) => {
   try {
     let { page = 1, limit = 10 } = req.query;
     page = Math.max(1, parseInt(page, 10) || 1);
-    limit = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
+    limit = Math.min(1000, Math.max(1, parseInt(limit, 10) || 10));
 
     const isAdmin = req.user && req.user.role === "admin";
     const filter = isAdmin ? {} : { approved: true, status: "approved" };
