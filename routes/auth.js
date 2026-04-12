@@ -30,20 +30,6 @@ const {
 } = require("../utils/tokenService");
 
 const router = express.Router();
-const rateLimit = require("express-rate-limit");
-
-const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: Number(process.env.AUTH_RATE_LIMIT_MAX || 10),
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: {
-    success: false,
-    message: "Too many authentication attempts, please try again later.",
-  },
-});
-
-router.use(authLimiter);
 
 function sanitizeUser(userDoc, role) {
   if (!userDoc) return null;
