@@ -52,12 +52,18 @@ const tryRequireRoute = (basePath) => {
       // Attempt require relative to this file
       return require(`./routes/${v}`);
     } catch (err) {
+      if (err.code !== "MODULE_NOT_FOUND" || !err.message.includes(`./routes/${v}`)) {
+        console.error(`Error loading route ./routes/${v}:`, err);
+      }
       // continue trying other variants
     }
     try {
       // Attempt alternate relative path (some shims use ../Backend/routes)
       return require(`../routes/${v}`);
     } catch (err) {
+      if (err.code !== "MODULE_NOT_FOUND" || !err.message.includes(`../routes/${v}`)) {
+        console.error(`Error loading route ../routes/${v}:`, err);
+      }
       // continue
     }
   }
@@ -395,3 +401,4 @@ process.on("uncaughtException", (err) => {
 });
 
 startServer();
+

@@ -27,7 +27,7 @@ const adminAuditSchema = new mongoose.Schema(
   },
   { timestamps: true }
 );
-AdminAuditSchema.set("toJSON", {
+adminAuditSchema.set("toJSON", {
   transform: function (doc, ret) {
     delete ret.__v; 
     delete ret.ip;

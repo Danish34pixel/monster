@@ -1,4 +1,4 @@
-﻿const { z } = require("zod");
+const { z } = require("zod");
 
 const email = z.string().trim().email();
 const password = z
@@ -19,7 +19,7 @@ const signupSchema = z.object({
 const loginSchema = z.object({
   email,
   password,
-  role: z.enum(["stockist", "medicalOwner", "purchaser"]),
+  role: z.enum(["stockist", "medicalOwner", "purchaser", "staff"]),
 });
 
 const refreshSchema = z.object({

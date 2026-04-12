@@ -1,4 +1,4 @@
-﻿const Staff = require("../models/Staff");
+const Staff = require("../models/Staff");
 const mongoose = require("mongoose");
 const {
   uploadToCloudinary,
@@ -21,7 +21,7 @@ function toSafeStaff(staff) {
 
 exports.createStaff = async (req, res) => {
   try {
-    const { fullName, address, contact, email } = req.body;
+    const { fullName, address, contact, email, currentWorkingPlace, isFresher, password } = req.body;
     const reqUser = req.user;
 
     if (!reqUser) {
@@ -52,21 +52,25 @@ exports.createStaff = async (req, res) => {
       // best effort cleanup
     }
 
-    let owningStockistId = reqUser._id;
-    if (reqUser.role === "admin" && req.body.stockist && mongoose.Types.ObjectId.isValid(req.body.stockist)) {
-      owningStockistId = req.body.stockist;
+    let hashedPassword;
+    if (password) {
+      const bcrypt = require("bcryptjs");
+      hashedPassword = await bcrypt.hash(password, 12);
     }
 
     const staff = await Staff.create({
       fullName,
       address,
       contact,
-      email,
+      email: email ? email.toLowerCase() : undefined,
       image: uploadedImage.url,
       aadharCard: uploadedAadhar.url,
       imagePublicId: uploadedImage.public_id,
       aadharPublicId: uploadedAadhar.public_id,
-      stockist: owningStockistId,
+      currentWorkingPlace,
+      isFresher: isFresher === 'true' || isFresher === true,
+      password: hashedPassword,
+      approved: false
     });
 
     return res.status(201).json({ success: true, data: toSafeStaff(staff) });
