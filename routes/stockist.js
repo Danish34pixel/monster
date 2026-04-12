@@ -1,4 +1,4 @@
-﻿const express = require("express");
+const express = require("express");
 const router = express.Router();
 const stockistController = require("../controllers/stockistController");
 const { authenticate, optionalAuthenticate, isAdmin } = require("../middleware/auth");
@@ -14,6 +14,7 @@ const { stockistCreateSchema } = require("../validation/schemas");
 // Public list endpoint so signup/discovery screens can load stockists
 // without requiring a logged-in token.
 router.get("/", optionalAuthenticate, stockistController.getStockists);
+router.get("/", stockistController.getStockists);
 router.get("/:id", authenticate, stockistController.getStockistById);
 
 router.post("/", authenticate, validateBody(stockistCreateSchema), stockistController.createStockist);

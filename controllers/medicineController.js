@@ -1,4 +1,4 @@
-﻿const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 const Medicine = require("../models/Medicine");
 
 exports.getMedicines = async (req, res) => {
@@ -9,7 +9,7 @@ exports.getMedicines = async (req, res) => {
 
     const totalMedicines = await Medicine.countDocuments();
     const data = await Medicine.find()
-      .select("name genericName manufacturer price company active createdAt updatedAt")
+      .select("name genericName manufacturer price company stockists stockist seller active createdAt updatedAt")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)

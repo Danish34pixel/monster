@@ -99,6 +99,9 @@ exports.getStockists = async (req, res) => {
     const totalStockists = await Stockist.countDocuments(filter);
     const data = await Stockist.find(filter)
       .select(projection)
+    const totalStockists = await Stockist.countDocuments();
+    const data = await Stockist.find()
+      .select("name contactPerson phone email address profileImageUrl medicines Medicines items companies status approved declined approvedAt createdAt updatedAt")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)

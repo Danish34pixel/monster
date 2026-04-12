@@ -97,6 +97,14 @@ router.post("/request", authenticate, async (req, res) => {
       }).catch((e) => {
         console.warn("Failed to flag purchasingCardRequested:", e && e.message);
       });
+    // Mark user session as requested for quick UI feedback
+    if (requester && typeof requester.save === "function") {
+      requester.purchasingCardRequested = true;
+      try {
+        await requester.save();
+      } catch (saveErr) {
+        console.warn("Failed to update requester requested flag:", saveErr.message);
+      }
     }
 
     // Notify selected stockists via email (best-effort). Do not await each
@@ -120,7 +128,7 @@ router.post("/request", authenticate, async (req, res) => {
           subject: "Purchasing Card Approval Request",
           html: `<p>Hello ${s.name || s.contactPerson || "Stockist"},</p>
                   <p>${
-                    requester.medicalName || requester.email
+                    requester.medicalName || requester.fullName || requester.email
                   } has requested a Purchasing Card and selected you as a verifier. You may approve the request by clicking the button below.</p>
                   <p><a href="${approveLink}" style="display:inline-block;padding:10px 14px;background:#0ea5a4;color:white;border-radius:6px;text-decoration:none">Approve Request</a></p>
                   <p>Request ID: ${reqDoc._id}</p>`,
