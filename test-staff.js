@@ -15,7 +15,8 @@ const Staff = require("./models/Staff");
 async function test() {
   try {
     const mongoUri = process.env.MONGO_URI || process.env.MONGODB_URI || process.env.DB_URI;
-    console.log("Connecting to:", mongoUri);
+    const maskedUri = String(mongoUri || "").replace(/\/\/([^:]+):([^@]+)@/g, "//$1:***@");
+    console.log("Connecting to:", maskedUri);
     await mongoose.connect(mongoUri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,

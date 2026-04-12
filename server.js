@@ -38,6 +38,7 @@ const helmet = require("helmet");
 const rateLimit = require("express-rate-limit");
 const mongoSanitize = require("express-mongo-sanitize");
 const hpp = require("hpp");
+const crypto = require("crypto");
 
 // Import routes (case-robust): try multiple casings and fall back to a stub router
 
@@ -99,6 +100,18 @@ const app = express();
 app.set("trust proxy", 1);
 mongoose.set("strictQuery", true);
 
+if (process.env.NODE_ENV === "production" && process.env.ENFORCE_HTTPS !== "0") {
+  app.use((req, res, next) => {
+    const forwardedProto = String(req.headers["x-forwarded-proto"] || "");
+    const isSecure = req.secure || forwardedProto.includes("https");
+    if (isSecure) return next();
+    return res.status(426).json({
+      success: false,
+      message: "HTTPS is required",
+    });
+  });
+}
+
 // Global security middleware
 app.use(
   helmet({
@@ -113,31 +126,16 @@ app.use(
     legacyHeaders: false,
   })
 );
-app.use((req, res, next) => {
-  try {
-    if (req.body && typeof req.body === "object") {
-      mongoSanitize.sanitize(req.body);
-    }
-    if (req.params && typeof req.params === "object") {
-      mongoSanitize.sanitize(req.params);
-    }
-    if (req.query && typeof req.query === "object") {
-      mongoSanitize.sanitize(req.query);
-    }
-  } catch (e) {
-    // fail closed on malformed payloads
-    return res.status(400).json({
-      success: false,
-      message: "Invalid request payload",
-    });
-  }
-  return next();
-});
-app.use(hpp());
 
 // Middleware
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true, limit: "10mb" }));
+app.use(
+  mongoSanitize({
+    replaceWith: "_",
+  })
+);
+app.use(hpp());
 
 // CORS configuration
 const corsOptions = {
@@ -163,8 +161,11 @@ const corsOptions = {
 // API even when the Render environment wasn't updated. Any values in
 // FRONTEND_URLS or FRONTEND_URL will be merged with this default.
 const DEFAULT_FRONTEND = "https://medi-trap-frontend.vercel.app";
-// Include common local dev origins so Vite (localhost:5173) can talk to the API during development.
-const DEV_FRONTENDS = ["http://localhost:5173", "http://10.0.2.2:5000", "http://localhost:8081"];
+// Include common local dev origins only in development.
+const DEV_FRONTENDS =
+  isDevelopment
+    ? ["http://localhost:5173", "http://10.0.2.2:5000", "http://localhost:8081"]
+    : [];
 const rawFrontends =
   process.env.FRONTEND_URLS || process.env.FRONTEND_URL || DEFAULT_FRONTEND;
 const allowedOrigins = new Set(
@@ -206,7 +207,7 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-dev-admin"],
+    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -228,8 +229,10 @@ app.use((req, res, next) => {
       // ignore
     }
   }
-  // Debug: log incoming origin and whether it's allowed
-  console.log(`CORS: incoming Origin=${origin} allowed=${allowed}`);
+  // Debug logging only in development to avoid leaking request metadata in production logs.
+  if (isDevelopment) {
+    console.log(`CORS: incoming Origin=${origin} allowed=${allowed}`);
+  }
   if (allowed && origin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
@@ -237,7 +240,7 @@ app.use((req, res, next) => {
       "Access-Control-Allow-Methods",
       "GET,POST,PUT,PATCH,DELETE,OPTIONS"
     );
-    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization,x-dev-admin");
+    res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   }
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
@@ -282,9 +285,21 @@ app.get("/health", (req, res) => {
 });
 
 // Development-only debug endpoints to inspect DB state quickly
-if (isDevelopment) {
+if (isDevelopment || process.env.DEBUG_API === "1") {
   app.get("/api/debug/users", async (req, res) => {
     try {
+      const supplied = String(req.headers["x-debug-token"] || "");
+      const expected = String(process.env.DEBUG_TOKEN || "");
+      if (!expected) {
+        return res.status(403).json({ success: false, message: "Debug token is not configured" });
+      }
+      const a = Buffer.from(supplied);
+      const b = Buffer.from(expected);
+      const isValid = a.length === b.length && crypto.timingSafeEqual(a, b);
+      if (!isValid) {
+        return res.status(403).json({ success: false, message: "Invalid debug token" });
+      }
+
       // Lazy-require the model so this endpoint can be no-op in production builds
       const User = require("./models/User");
       const count = await User.countDocuments();

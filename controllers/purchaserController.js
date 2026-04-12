@@ -105,7 +105,14 @@ exports.loginPurchaser = async (req, res) => {
 
 exports.list = async (req, res) => {
   try {
-    const query = req.user?.role === "admin" ? {} : { createdBy: req.user._id };
+    let query = {};
+    if (req.user?.role === "admin") {
+      query = {};
+    } else if (req.user?.role === "purchaser") {
+      query = { _id: req.user._id };
+    } else {
+      query = { createdBy: req.user._id };
+    }
     const purchasers = await Purchaser.find(query)
       .select("fullName email contactNo address photo aadharImage approved verified createdBy createdAt updatedAt")
       .sort({ createdAt: -1 })
@@ -128,8 +135,9 @@ exports.get = async (req, res) => {
     }
 
     const isAdmin = req.user?.role === "admin";
+    const isSelf = req.user?.role === "purchaser" && String(req.user?._id) === String(purchaser._id);
     const isOwner = purchaser.createdBy && String(purchaser.createdBy) === String(req.user?._id);
-    if (!isAdmin && !isOwner) {
+    if (!isAdmin && !isOwner && !isSelf) {
       return res.status(403).json({ success: false, message: "Not authorized" });
     }
 

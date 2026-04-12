@@ -32,15 +32,6 @@ async function resolveUserFromToken(decoded) {
 
 const authenticate = async (req, res, next) => {
   try {
-    // Development-only bypass for local admin testing from frontend.
-    if (
-      process.env.NODE_ENV !== "production" &&
-      String(req.headers["x-dev-admin"] || "") === "1"
-    ) {
-      req.user = { _id: "000000000000000000000000", role: "admin" };
-      return next();
-    }
-
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return res.status(401).json({
@@ -74,15 +65,36 @@ const authenticate = async (req, res, next) => {
   }
 };
 
-const isAdmin = (req, res, next) => {
-  // Development-only bypass for local admin testing from frontend.
-  if (
-    process.env.NODE_ENV !== "production" &&
-    String(req.headers["x-dev-admin"] || "") === "1"
-  ) {
+const optionalAuthenticate = async (req, res, next) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      req.user = null;
+      req.auth = null;
+      return next();
+    }
+
+    const token = authHeader.slice(7);
+    const decoded = verifyAccessToken(token);
+    const user = await resolveUserFromToken(decoded);
+    if (!user) {
+      req.user = null;
+      req.auth = null;
+      return next();
+    }
+
+    req.user = user;
+    req.auth = decoded;
+    return next();
+  } catch (error) {
+    // Optional auth should not reject public requests on token issues.
+    req.user = null;
+    req.auth = null;
     return next();
   }
+};
 
+const isAdmin = (req, res, next) => {
   if (!req.user || req.user.role !== "admin") {
     return res.status(403).json({
       success: false,
@@ -94,5 +106,6 @@ const isAdmin = (req, res, next) => {
 
 module.exports = {
   authenticate,
+  optionalAuthenticate,
   isAdmin,
 };

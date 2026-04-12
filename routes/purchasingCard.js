@@ -1,5 +1,6 @@
 const express = require("express");
 const router = express.Router();
+const mongoose = require("mongoose");
 const User = require("../models/User");
 const Stockist = require("../models/Stockist");
 const Purchaser = require("../models/Purchaser");
@@ -22,10 +23,6 @@ router.post("/request", authenticate, async (req, res) => {
         .status(401)
         .json({ success: false, message: "Not authenticated" });
 
-    console.debug("Purchasing-card request by:", {
-      requesterId: requester && requester._id,
-      email: requester && requester.email,
-    });
     const {
       stockistIds,
       purchaserId,
@@ -40,8 +37,16 @@ router.post("/request", authenticate, async (req, res) => {
       });
     }
 
+    const normalizedStockistIds = stockistIds.map(String);
+    if (normalizedStockistIds.some((sid) => !mongoose.Types.ObjectId.isValid(sid))) {
+      return res.status(400).json({
+        success: false,
+        message: "Invalid stockist selection",
+      });
+    }
+
     // Validate stockists exist
-    const stockists = await Stockist.find({ _id: { $in: stockistIds } }).lean();
+    const stockists = await Stockist.find({ _id: { $in: normalizedStockistIds } }).lean();
     if (!stockists || stockists.length < 3) {
       return res
         .status(400)
@@ -50,7 +55,7 @@ router.post("/request", authenticate, async (req, res) => {
 
     // Create request and generate per-stockist approval tokens
     const crypto = require("crypto");
-    const approvalTokens = stockistIds.map((sid) => ({
+    const approvalTokens = normalizedStockistIds.map((sid) => ({
       stockist: sid,
       token: crypto.randomBytes(18).toString("hex"),
       used: false,
@@ -58,7 +63,7 @@ router.post("/request", authenticate, async (req, res) => {
 
     const reqDoc = new PurchaseCardRequest({
       requester: requester._id,
-      stockists: stockistIds,
+      stockists: normalizedStockistIds,
       approvalTokens,
       requesterDisplay: purchaserId
         ? {
@@ -83,7 +88,6 @@ router.post("/request", authenticate, async (req, res) => {
       );
     }
 
-    console.debug("PurchaseCardRequest saved:", { id: reqDoc._id });
 
     // Mark requester as having an active request (best-effort).
     // `req.user` is a plain object from auth middleware, so it has no `.save()`.
@@ -143,7 +147,7 @@ router.post("/request", authenticate, async (req, res) => {
     });
   } catch (err) {
     console.error("Purchasing card request error:", err);
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: "Failed to submit purchasing card request" });
   }
 });
 
@@ -271,7 +275,7 @@ router.get("/requests", authenticate, async (req, res) => {
     return res.json({ success: true, data: requests });
   } catch (err) {
     console.error("List requests error:", err);
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: "Failed to list requests" });
   }
 });
 
@@ -376,7 +380,7 @@ router.post("/approve/:requestId", authenticate, async (req, res) => {
     });
   } catch (err) {
     console.error("Approve request error:", err);
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: "Failed to approve request" });
   }
 });
 
@@ -412,7 +416,7 @@ router.get("/status/:id", authenticate, async (req, res) => {
     });
   } catch (err) {
     console.error("PurchaseCard status error:", err);
-    return res.status(500).json({ success: false, message: err.message });
+    return res.status(500).json({ success: false, message: "Failed to fetch request status" });
   }
 });
 

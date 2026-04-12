@@ -15,6 +15,7 @@ const StaffSchema = new mongoose.Schema(
     approved: { type: Boolean, default: false }, // Requires stockist approval to login
     currentWorkingPlace: { type: String, trim: true },
     isFresher: { type: Boolean, default: false },
+    stockist: { type: mongoose.Schema.Types.ObjectId, ref: "Stockist" },
   },
   { timestamps: true }
 );

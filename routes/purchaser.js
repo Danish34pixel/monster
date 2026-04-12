@@ -9,6 +9,7 @@ const {
 } = require("../middleware/upload");
 const { validateBody } = require("../middleware/validate");
 const { purchaserCreateSchema } = require("../validation/schemas");
+const { authLimiter } = require("../middleware/rateLimiters");
 
 router.post(
   "/",
@@ -23,7 +24,7 @@ router.post(
   purchaserController.createPurchaser
 );
 
-router.post("/login", purchaserController.loginPurchaser);
+router.post("/login", authLimiter, purchaserController.loginPurchaser);
 router.get("/", authenticate, purchaserController.list);
 router.get("/:id", authenticate, purchaserController.get);
 router.delete("/:id", authenticate, purchaserController.delete);

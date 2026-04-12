@@ -14,6 +14,11 @@ const {
 const { authenticate } = require("../middleware/auth");
 const { validateBody } = require("../middleware/validate");
 const {
+  authLimiter,
+  passwordResetLimiter,
+  refreshLimiter,
+} = require("../middleware/rateLimiters");
+const {
   signupSchema,
   loginSchema,
   refreshSchema,
@@ -68,6 +73,7 @@ async function resolveAccountByRole(email, role) {
 
 router.post(
   "/signup",
+  authLimiter,
   upload.single("drugLicenseImage"),
   validateUploadedFiles,
   handleUploadError,
@@ -139,6 +145,7 @@ router.post(
 
 router.post(
   "/staff-signup",
+  authLimiter,
   upload.fields([{ name: "image", maxCount: 1 }, { name: "aadharCard", maxCount: 1 }]),
   validateUploadedFiles,
   handleUploadError,
@@ -196,7 +203,7 @@ router.post(
   }
 );
 
-router.post("/login", validateBody(loginSchema), async (req, res) => {
+router.post("/login", authLimiter, validateBody(loginSchema), async (req, res) => {
   try {
     const { email, password, role } = req.body;
     const normalizedEmail = email.toLowerCase();
@@ -248,7 +255,7 @@ router.post("/login", validateBody(loginSchema), async (req, res) => {
   }
 });
 
-router.post("/refresh", validateBody(refreshSchema), async (req, res) => {
+router.post("/refresh", refreshLimiter, validateBody(refreshSchema), async (req, res) => {
   try {
     const { refreshToken } = req.body;
     const decoded = verifyRefreshToken(refreshToken);
@@ -299,8 +306,8 @@ router.get("/status/:id", async (req, res) => {
   }
 });
 
-router.post("/forgot-password", validateBody(forgotPasswordSchema), forgotPassword);
-router.post("/reset-password", validateBody(resetPasswordSchema), resetPassword);
+router.post("/forgot-password", passwordResetLimiter, validateBody(forgotPasswordSchema), forgotPassword);
+router.post("/reset-password", passwordResetLimiter, validateBody(resetPasswordSchema), resetPassword);
 
 router.put(
   "/profile",
@@ -352,6 +359,7 @@ router.post("/logout", authenticate, async (req, res) => {
 
 router.post(
   "/purchaser-signup",
+  authLimiter,
   upload.fields([
     { name: "aadharImage", maxCount: 1 },
     { name: "personalPhoto", maxCount: 1 },

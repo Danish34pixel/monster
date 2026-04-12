@@ -33,6 +33,14 @@ exports.createStaff = async (req, res) => {
       return res.status(403).json({ success: false, message: "Only stockists or admins can create staff." });
     }
 
+    const normalizedEmail = email ? String(email).toLowerCase().trim() : undefined;
+    if (normalizedEmail) {
+      const existing = await Staff.findOne({ email: normalizedEmail }).lean();
+      if (existing) {
+        return res.status(409).json({ success: false, message: "Email already registered" });
+      }
+    }
+
     if (!req.files || !req.files.image || !req.files.aadharCard) {
       return res.status(400).json({ success: false, message: "Image and Aadhar card are required." });
     }
@@ -62,7 +70,7 @@ exports.createStaff = async (req, res) => {
       fullName,
       address,
       contact,
-      email: email ? email.toLowerCase() : undefined,
+      email: normalizedEmail,
       image: uploadedImage.url,
       aadharCard: uploadedAadhar.url,
       imagePublicId: uploadedImage.public_id,
@@ -70,7 +78,13 @@ exports.createStaff = async (req, res) => {
       currentWorkingPlace,
       isFresher: isFresher === 'true' || isFresher === true,
       password: hashedPassword,
-      approved: false
+      approved: false,
+      stockist:
+        reqUser.role === "stockist"
+          ? reqUser._id
+          : req.body.stockist && mongoose.Types.ObjectId.isValid(req.body.stockist)
+          ? req.body.stockist
+          : undefined,
     });
 
     return res.status(201).json({ success: true, data: toSafeStaff(staff) });
@@ -81,11 +95,18 @@ exports.createStaff = async (req, res) => {
 
 exports.getStaffs = async (req, res) => {
   try {
+    const user = req.user;
+    if (!user || (user.role !== "admin" && user.role !== "stockist")) {
+      return res.status(403).json({ success: false, message: "Not authorized" });
+    }
+
     const q = req.query || {};
     const filter = {};
 
-    if (q.stockist === "me") {
-      filter.stockist = req.user._id;
+    if (user.role === "stockist") {
+      filter.stockist = user._id;
+    } else if (q.stockist === "me") {
+      filter.stockist = user._id;
     } else if (q.stockist && mongoose.Types.ObjectId.isValid(q.stockist)) {
       filter.stockist = q.stockist;
     }

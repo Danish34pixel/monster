@@ -90,9 +90,15 @@ exports.getStockists = async (req, res) => {
     page = Math.max(1, parseInt(page, 10) || 1);
     limit = Math.min(100, Math.max(1, parseInt(limit, 10) || 10));
 
-    const totalStockists = await Stockist.countDocuments();
-    const data = await Stockist.find()
-      .select("name contactPerson phone email address status approved declined approvedAt createdAt updatedAt")
+    const isAdmin = req.user && req.user.role === "admin";
+    const filter = isAdmin ? {} : { approved: true, status: "approved" };
+    const projection = isAdmin
+      ? "name contactPerson phone email address status approved declined approvedAt createdAt updatedAt"
+      : "name contactPerson phone address.city address.state status approved createdAt updatedAt";
+
+    const totalStockists = await Stockist.countDocuments(filter);
+    const data = await Stockist.find(filter)
+      .select(projection)
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
