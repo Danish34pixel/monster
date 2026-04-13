@@ -1,4 +1,4 @@
-﻿const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 
 const StockistSchema = new mongoose.Schema(
   {
@@ -27,6 +27,8 @@ const StockistSchema = new mongoose.Schema(
     licenseImageUrl: { type: String, trim: true },
     dob: { type: Date },
     bloodGroup: { type: String, trim: true, maxlength: 5 },
+    // List of medicine names this stockist carries in inventory
+    medicines: [{ type: String, trim: true }],
     profileImageUrl: { type: String, trim: true },
     roleType: { type: String, trim: true, maxlength: 40 },
     cntxNumber: { type: String, trim: true, maxlength: 40 },

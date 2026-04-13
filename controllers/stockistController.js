@@ -119,6 +119,47 @@ exports.getStockists = async (req, res) => {
   }
 };
 
+// GET /api/stockist/by-medicine?name=paracetamol
+// Returns approved stockists whose medicines[] contains the search term.
+// Falls back to all approved stockists if no specific inventory match found.
+exports.searchByMedicine = async (req, res) => {
+  try {
+    const rawName = String(req.query.name || "").trim();
+    if (!rawName) {
+      return res.status(400).json({ success: false, message: "name query parameter is required" });
+    }
+
+    // First try exact inventory match
+    const regex = new RegExp(rawName, "i");
+    const exactMatches = await Stockist.find({
+      status: "approved",
+      approved: true,
+      medicines: { $elemMatch: { $regex: regex } },
+    })
+      .select("name contactPerson phone email address.city address.state medicines")
+      .limit(50)
+      .lean();
+
+    if (exactMatches.length > 0) {
+      return res.json({ success: true, count: exactMatches.length, data: exactMatches, matchType: "inventory" });
+    }
+
+    // Fallback: return all approved stockists
+    const allApproved = await Stockist.find({
+      status: "approved",
+      approved: true,
+    })
+      .select("name contactPerson phone email address.city address.state")
+      .limit(100)
+      .lean();
+
+    return res.json({ success: true, count: allApproved.length, data: allApproved, matchType: "general" });
+  } catch (err) {
+    console.error("searchByMedicine error:", err);
+    return res.status(500).json({ success: false, message: "Search failed" });
+  }
+};
+
 exports.uploadLicenseImage = async (req, res) => {
   try {
     if (!req.file) {

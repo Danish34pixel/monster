@@ -14,7 +14,7 @@ const { stockistCreateSchema } = require("../validation/schemas");
 // Public list endpoint so signup/discovery screens can load stockists
 // without requiring a logged-in token.
 router.get("/", optionalAuthenticate, stockistController.getStockists);
-router.get("/", stockistController.getStockists);
+router.get("/by-medicine", stockistController.searchByMedicine);
 router.get("/:id", authenticate, stockistController.getStockistById);
 
 router.post("/", authenticate, validateBody(stockistCreateSchema), stockistController.createStockist);

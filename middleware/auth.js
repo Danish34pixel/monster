@@ -1,6 +1,7 @@
 const User = require("../models/User");
 const Stockist = require("../models/Stockist");
 const Purchaser = require("../models/Purchaser");
+const Staff = require("../models/Staff");
 const { verifyAccessToken } = require("../utils/tokenService");
 
 async function resolveUserFromToken(decoded) {
@@ -20,6 +21,14 @@ async function resolveUserFromToken(decoded) {
     if (!purchaser) return null;
     const obj = purchaser.toObject();
     obj.role = "purchaser";
+    return obj;
+  }
+
+  if (role === "staff") {
+    const staff = await Staff.findById(userId).select("-password -resetPasswordToken -resetPasswordExpires");
+    if (!staff) return null;
+    const obj = staff.toObject();
+    obj.role = "staff";
     return obj;
   }
 
