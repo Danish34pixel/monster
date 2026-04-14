@@ -271,17 +271,12 @@ router.post(
         ...workplace,
       });
 
-      try {
-        cleanupUploads(req);
-      } catch (e) { }
-
       return res.status(201).json({
         success: true,
         message: "Staff registration successful",
         user: sanitizeUser(staff, "staff"),
       });
     } catch (error) {
-      cleanupUploads(req);
       if (
         String(error.message || "").includes("Please select") ||
         String(error.message || "").includes("Please provide") ||
@@ -291,7 +286,8 @@ router.post(
       }
       return res.status(500).json({ success: false, message: "Server error during staff signup" });
     }
-  }
+  },
+  cleanupUploads
 );
 
 router.post("/login", authLimiter, validateBody(loginSchema), async (req, res) => {
