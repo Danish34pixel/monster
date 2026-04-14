@@ -5,7 +5,7 @@ exports.getCompanies = async (req, res) => {
   try {
     let { page = 1, limit = 10 } = req.query;
     page = Number.parseInt(page, 10) || 1;
-    limit = Math.min(100, Number.parseInt(limit, 10) || 10);
+    limit = Math.min(1000, Math.max(1, Number.parseInt(limit, 10) || 10));
 
     const totalCompanies = await Company.countDocuments();
     const data = await Company.find()
