@@ -47,6 +47,52 @@ function sanitizeUser(userDoc, role) {
   return obj;
 }
 
+async function resolveStaffWorkplaceFromPayload(payload = {}) {
+  const typeRaw = payload.workForType || payload.worksUnderType;
+  const nameRaw = payload.workForName || payload.worksUnderName;
+  const idRaw = payload.workForId || payload.workFor;
+  const type = String(typeRaw || "").trim().toLowerCase();
+  const normalizedType = type === "retailer" ? "medical" : type;
+  const name = String(nameRaw || "").trim();
+  const id = idRaw && String(idRaw).length === 24 ? idRaw : undefined;
+
+  if (!["stockist", "medical"].includes(normalizedType)) {
+    throw new Error("Please select where you work: stockist or medical.");
+  }
+  if (!name) {
+    throw new Error("Please provide stockist/medical name.");
+  }
+
+  let resolvedId = id;
+  if (!resolvedId) {
+    if (normalizedType === "stockist") {
+      const stockist = await Stockist.findOne({
+        name: { $regex: `^${name}$`, $options: "i" },
+        approved: true,
+        status: "approved",
+      })
+        .select("_id")
+        .lean();
+      if (stockist) resolvedId = stockist._id;
+    } else {
+      const medical = await User.findOne({
+        medicalName: { $regex: `^${name}$`, $options: "i" },
+        approved: true,
+      })
+        .select("_id")
+        .lean();
+      if (medical) resolvedId = medical._id;
+    }
+  }
+
+  return {
+    workForType: normalizedType,
+    workForId: resolvedId,
+    workForName: name,
+    stockist: normalizedType === "stockist" ? resolvedId : undefined,
+  };
+}
+
 async function resolveAccountByRole(email, role) {
   if (role === "stockist") {
     const stockist = await Stockist.findOne({ email }).select("+password");
@@ -143,6 +189,25 @@ router.post(
   cleanupUploads
 );
 
+router.get("/medical-owners", async (req, res) => {
+  try {
+    const data = await User.find({ approved: true })
+      .select("medicalName ownerName")
+      .sort({ medicalName: 1 })
+      .lean();
+    return res.json({
+      success: true,
+      data: (data || []).map((u) => ({
+        _id: u._id,
+        name: u.medicalName,
+        ownerName: u.ownerName,
+      })),
+    });
+  } catch (error) {
+    return res.status(500).json({ success: false, message: "Failed to load medical owners" });
+  }
+});
+
 router.post(
   "/staff-signup",
   authLimiter,
@@ -155,9 +220,17 @@ router.post(
         return res.status(400).json({ success: false, message: "Image and Aadhar card are required" });
       }
 
-      const { fullName, contact, email, address, password, currentWorkingPlace, isFresher, stockistId } = req.body;
-      if (!fullName || !contact || !email || !password || !stockistId) {
-        return res.status(400).json({ success: false, message: "All fields are required including stockist selection" });
+      const {
+        fullName,
+        contact,
+        email,
+        address,
+        password,
+        currentWorkingPlace,
+        isFresher,
+      } = req.body;
+      if (!fullName || !contact || !email || !password) {
+        return res.status(400).json({ success: false, message: "All fields are required" });
       }
 
       const normalizedEmail = email.toLowerCase();
@@ -171,6 +244,7 @@ router.post(
         uploadToCloudinary(req.files.image[0], "medtek/staff"),
         uploadToCloudinary(req.files.aadharCard[0], "medtek/staff"),
       ]);
+      const workplace = await resolveStaffWorkplaceFromPayload(req.body || {});
 
       const staff = await Staff.create({
         fullName,
@@ -179,13 +253,14 @@ router.post(
         address,
         password: hashedPassword,
         currentWorkingPlace,
-        isFresher: isFresher === 'true' || isFresher === true,
+        isFresher: isFresher === "true" || isFresher === true,
         image: imgRes.url,
         aadharCard: aadharRes.url,
         imagePublicId: imgRes.public_id,
         aadharPublicId: aadharRes.public_id,
-        stockist: stockistId,
-        approved: false, // staff needs approval
+        approved: false,
+        approvalStatus: "pending",
+        ...workplace,
       });
 
       try {
@@ -199,6 +274,9 @@ router.post(
       });
     } catch (error) {
       cleanupUploads(req);
+      if (String(error.message || "").includes("Please select") || String(error.message || "").includes("Please provide")) {
+        return res.status(400).json({ success: false, message: error.message });
+      }
       return res.status(500).json({ success: false, message: "Server error during staff signup" });
     }
   }
@@ -233,10 +311,16 @@ router.post("/login", authLimiter, validateBody(loginSchema), async (req, res) =
     }
 
     if (account.role === "staff") {
-      if (user.approved === false) {
-        // Allow login but they are restricted? Or completely block them?
-        // Wait, for this demo let's assume they can login or we just don't strictly enforce approval yet if it breaks the demo flow.
-        // Actually, just let them login but we'll leave this flag for future.
+      const status = user.approvalStatus || (user.approved ? "approved" : "pending");
+      if (status !== "approved") {
+        return res.status(403).json({
+          success: false,
+          message:
+            status === "declined"
+              ? "Your staff request was declined by the selected organization."
+              : "Your staff account is pending approval from your organization.",
+          status,
+        });
       }
     }
 
@@ -298,8 +382,11 @@ router.get("/status/:id", async (req, res) => {
     const purchaser = await Purchaser.findById(id).select("approved verified status").lean();
     if (purchaser) return res.json({ success: true, data: { approved: purchaser.approved || purchaser.verified, declined: false, status: purchaser.approved ? "approved" : "processing" } });
 
-    const staff = await Staff.findById(id).select("approved status").lean();
-    if (staff) return res.json({ success: true, data: { approved: staff.approved, declined: false, status: staff.approved ? "approved" : "processing" } });
+    const staff = await Staff.findById(id).select("approved approvalStatus").lean();
+    if (staff) {
+      const status = staff.approvalStatus || (staff.approved ? "approved" : "processing");
+      return res.json({ success: true, data: { approved: status === "approved", declined: status === "declined", status } });
+    }
 
     return res.status(404).json({ success: false, message: "Record not found" });
   } catch (error) {

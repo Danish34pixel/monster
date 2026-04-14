@@ -19,6 +19,9 @@ router.post(
 );
 
 router.get("/", authenticate, staffController.getStaffs);
+router.get("/approvals/pending", authenticate, staffController.getPendingApprovals);
+router.patch("/:id/approve", authenticate, staffController.approveStaff);
+router.patch("/:id/decline", authenticate, staffController.declineStaff);
 router.get("/:id", authenticate, staffController.getStaff);
 router.delete("/:id", authenticate, staffController.deleteStaff);
 router.put("/:id/approve", authenticate, staffController.approveStaff);

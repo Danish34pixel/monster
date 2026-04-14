@@ -12,7 +12,23 @@ const StaffSchema = new mongoose.Schema(
     imagePublicId: { type: String, trim: true },
     aadharPublicId: { type: String, trim: true },
     password: { type: String }, // For staff login
-    approved: { type: Boolean, default: false }, // Requires stockist approval to login
+    approved: { type: Boolean, default: false }, // Kept for backward compatibility
+    approvalStatus: {
+      type: String,
+      enum: ["pending", "approved", "declined"],
+      default: "pending",
+    },
+    workForType: {
+      type: String,
+      enum: ["stockist", "medical"],
+      required: true,
+    },
+    workForId: { type: mongoose.Schema.Types.ObjectId },
+    workForName: { type: String, trim: true, required: true },
+    approvedAt: { type: Date },
+    approvedBy: { type: mongoose.Schema.Types.ObjectId },
+    declinedAt: { type: Date },
+    declinedBy: { type: mongoose.Schema.Types.ObjectId },
     currentWorkingPlace: { type: String, trim: true },
     isFresher: { type: Boolean, default: false },
     stockist: { type: mongoose.Schema.Types.ObjectId, ref: "Stockist" },

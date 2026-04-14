@@ -60,7 +60,13 @@ const staffCreateSchema = z.object({
   contact: z.string().trim().min(7).max(20),
   email: email.optional(),
   address: z.string().trim().max(200).optional(),
+  password: z.string().min(6).max(128).optional(),
+  currentWorkingPlace: z.string().trim().max(200).optional(),
+  isFresher: z.union([z.boolean(), z.string()]).optional(),
   stockist: z.string().trim().optional(),
+  workForType: z.enum(["stockist", "medical"]).optional(),
+  workForId: z.string().trim().optional(),
+  workForName: z.string().trim().min(2).max(120).optional(),
 });
 
 const companyCreateSchema = z.object({
