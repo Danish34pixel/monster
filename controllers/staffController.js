@@ -171,3 +171,23 @@ exports.deleteStaff = async (req, res) => {
     return res.status(500).json({ success: false, message: "Failed to delete staff" });
   }
 };
+
+exports.approveStaff = async (req, res) => {
+  try {
+    const staff = await Staff.findById(req.params.id);
+    if (!staff) return res.status(404).json({ success: false, message: "Staff not found" });
+
+    const isAdmin = req.user.role === "admin";
+    const isOwner = staff.stockist && String(staff.stockist) === String(req.user._id);
+
+    if (!isAdmin && !isOwner) {
+      return res.status(403).json({ success: false, message: "Not authorized to approve this staff." });
+    }
+
+    staff.approved = true;
+    await staff.save();
+    return res.json({ success: true, message: "Staff approved" });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: "Action failed" });
+  }
+};

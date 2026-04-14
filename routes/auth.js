@@ -155,9 +155,9 @@ router.post(
         return res.status(400).json({ success: false, message: "Image and Aadhar card are required" });
       }
 
-      const { fullName, contact, email, address, password, currentWorkingPlace, isFresher } = req.body;
-      if (!fullName || !contact || !email || !password) {
-        return res.status(400).json({ success: false, message: "All fields are required" });
+      const { fullName, contact, email, address, password, currentWorkingPlace, isFresher, stockistId } = req.body;
+      if (!fullName || !contact || !email || !password || !stockistId) {
+        return res.status(400).json({ success: false, message: "All fields are required including stockist selection" });
       }
 
       const normalizedEmail = email.toLowerCase();
@@ -184,6 +184,7 @@ router.post(
         aadharCard: aadharRes.url,
         imagePublicId: imgRes.public_id,
         aadharPublicId: aadharRes.public_id,
+        stockist: stockistId,
         approved: false, // staff needs approval
       });
 
