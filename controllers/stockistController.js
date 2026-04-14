@@ -18,6 +18,39 @@ function sanitizeStockist(stockist) {
   return obj;
 }
 
+function normalizeMedicineKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
+}
+
+function extractStockistMedicineNames(stockist = {}) {
+  const names = [];
+
+  if (Array.isArray(stockist.medicines)) {
+    for (const item of stockist.medicines) {
+      if (typeof item === "string") {
+        names.push(item);
+      } else if (item && typeof item === "object") {
+        names.push(item.name || item.medicineName || item.label || "");
+      }
+    }
+  }
+
+  if (Array.isArray(stockist.availableItems)) {
+    for (const item of stockist.availableItems) {
+      if (typeof item === "string") {
+        names.push(item);
+      } else if (item && typeof item === "object") {
+        names.push(item.name || item.medicineName || item.label || "");
+      }
+    }
+  }
+
+  return names.filter(Boolean);
+}
+
 function buildStockistPayload(body = {}) {
   const payload = {
     name: body.name,
@@ -121,39 +154,38 @@ exports.getStockists = async (req, res) => {
 
 // GET /api/stockist/by-medicine?name=paracetamol
 // Returns approved stockists whose medicines[] contains the search term.
-// Falls back to all approved stockists if no specific inventory match found.
+// Falls back to all approved stockists if no specific inventory match found
+// unless strict=true is passed.
 exports.searchByMedicine = async (req, res) => {
   try {
     const rawName = String(req.query.name || "").trim();
+    const strict = String(req.query.strict || "").toLowerCase() === "true";
     if (!rawName) {
       return res.status(400).json({ success: false, message: "name query parameter is required" });
     }
 
-    // First try exact inventory match
-    const regex = new RegExp(rawName, "i");
-    const exactMatches = await Stockist.find({
+    const queryKey = normalizeMedicineKey(rawName);
+    const approvedStockists = await Stockist.find({
       status: "approved",
       approved: true,
-      medicines: { $elemMatch: { $regex: regex } },
     })
-      .select("name contactPerson phone email address.city address.state medicines")
-      .limit(50)
+      .select("name contactPerson phone cntxNumber email address.city address.state medicines availableItems")
       .lean();
+
+    const exactMatches = approvedStockists.filter((stockist) => {
+      const medNames = extractStockistMedicineNames(stockist);
+      return medNames.some((name) => normalizeMedicineKey(name) === queryKey);
+    });
 
     if (exactMatches.length > 0) {
       return res.json({ success: true, count: exactMatches.length, data: exactMatches, matchType: "inventory" });
     }
 
-    // Fallback: return all approved stockists
-    const allApproved = await Stockist.find({
-      status: "approved",
-      approved: true,
-    })
-      .select("name contactPerson phone email address.city address.state")
-      .limit(100)
-      .lean();
+    if (strict) {
+      return res.json({ success: true, count: 0, data: [], matchType: "inventory" });
+    }
 
-    return res.json({ success: true, count: allApproved.length, data: allApproved, matchType: "general" });
+    return res.json({ success: true, count: approvedStockists.length, data: approvedStockists, matchType: "general" });
   } catch (err) {
     console.error("searchByMedicine error:", err);
     return res.status(500).json({ success: false, message: "Search failed" });
