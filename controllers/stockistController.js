@@ -126,8 +126,8 @@ exports.getStockists = async (req, res) => {
     const isAdmin = req.user && req.user.role === "admin";
     const filter = isAdmin ? {} : { approved: true, status: "approved" };
     const projection = isAdmin
-      ? "name contactPerson phone email address status approved declined approvedAt createdAt updatedAt"
-      : "name contactPerson phone address.city address.state status approved createdAt updatedAt";
+      ? "name contactPerson phone email address status approved declined approvedAt companies createdAt updatedAt"
+      : "name contactPerson phone address.city address.state status approved companies createdAt updatedAt";
 
     const totalStockists = await Stockist.countDocuments(filter);
     const data = await Stockist.find(filter)
@@ -144,6 +144,7 @@ exports.getStockists = async (req, res) => {
       totalStockists,
       count: data.length,
       data,
+      debugVersion: "v1.0.3-linkage-fix",
     });
   } catch (err) {
     require('fs').writeFileSync('errlog.txt', String(err.stack || err.message));
@@ -332,7 +333,7 @@ exports.getStockistById = async (req, res) => {
     }
 
     const stockist = await Stockist.findById(id)
-      .select("name contactPerson phone email address profileImageUrl licenseImageUrl roleType status approved declined approvedAt createdAt updatedAt")
+      .select("name contactPerson phone email address profileImageUrl licenseImageUrl roleType status approved declined approvedAt companies createdAt updatedAt")
       .lean();
 
     if (!stockist) {

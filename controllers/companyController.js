@@ -1,4 +1,5 @@
-﻿const Company = require("../models/Company");
+const Company = require("../models/Company");
+const Stockist = require("../models/Stockist");
 
 exports.getCompanies = async (req, res) => {
   try {
@@ -8,7 +9,7 @@ exports.getCompanies = async (req, res) => {
 
     const totalCompanies = await Company.countDocuments();
     const data = await Company.find()
-      .select("name description active createdAt updatedAt")
+      .select("name description active stockists createdAt updatedAt")
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
       .limit(limit)
@@ -29,13 +30,37 @@ exports.getCompanies = async (req, res) => {
 
 exports.createCompany = async (req, res) => {
   try {
+    const { name, description, active, stockists } = req.body;
+    
+    // 1. Create the company
     const payload = {
-      name: req.body.name,
-      description: req.body.description,
-      active: typeof req.body.active === "boolean" ? req.body.active : true,
+      name,
+      description,
+      active: typeof active === "boolean" ? active : true,
+      stockists: Array.isArray(stockists) ? stockists : [],
     };
 
     const company = await Company.create(payload);
+    
+    // DEBUG: Log creation success
+    try {
+      require('fs').appendFileSync('db_debug.txt', `[${new Date().toISOString()}] Created company: ${company.name} (${company._id})\n`);
+    } catch(e) {}
+
+    let updateResult = null;
+    // 2. If stockists are provided, update each stockist to link back to this company
+    if (payload.stockists.length > 0) {
+      updateResult = await Stockist.updateMany(
+        { _id: { $in: payload.stockists } },
+        { $addToSet: { companies: company._id } }
+      );
+      
+      // DEBUG: Log update result
+      try {
+        require('fs').appendFileSync('db_debug.txt', `[${new Date().toISOString()}] Linked to ${updateResult.modifiedCount}/${payload.stockists.length} stockists.\n`);
+      } catch(e) {}
+    }
+
     return res.status(201).json({
       success: true,
       data: {
@@ -43,7 +68,9 @@ exports.createCompany = async (req, res) => {
         name: company.name,
         description: company.description,
         active: company.active,
+        stockists: company.stockists,
       },
+      updateResult,
     });
   } catch (err) {
     if (err && err.code === 11000) {

@@ -1,27 +1,42 @@
 const Stockist = require("../models/Stockist");
+const Medicine = require("../models/Medicine");
 
 function escapeRegex(value) {
   return String(value).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 function normalizeItemName(name) {
-  return String(name || "").trim().toLowerCase();
+  return String(name || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "");
 }
 
 function extractSupplierItems(supplier) {
   const names = [];
 
-  if (Array.isArray(supplier.availableItems)) {
-    for (const it of supplier.availableItems) {
-      const n = normalizeItemName(it && it.name);
-      if (n) names.push(n);
-    }
-  }
+  // Check all common inventory fields
+  const fields = [
+    "availableItems",
+    "medicines",
+    "Medicines",
+    "items",
+    "companies",
+  ];
 
-  if (Array.isArray(supplier.medicines)) {
-    for (const n of supplier.medicines) {
-      const v = normalizeItemName(n);
-      if (v) names.push(v);
+  for (const field of fields) {
+    if (Array.isArray(supplier[field])) {
+      for (const it of supplier[field]) {
+        if (!it) continue;
+        if (typeof it === "string") {
+          const n = normalizeItemName(it);
+          if (n) names.push(n);
+        } else if (typeof it === "object") {
+          // Handle common object structures
+          const n = normalizeItemName(it.name || it.medicineName || it.label || it.shortName || it.brandName || "");
+          if (n) names.push(n);
+        }
+      }
     }
   }
 
@@ -35,19 +50,20 @@ async function distributeDemand(demand = {}, options = {}) {
       ? Boolean(options.assignToAllSuppliers)
       : true;
 
-  const deduped = [];
+  const dedupedItems = [];
   const seen = new Set();
   for (const item of rawItems) {
     const name = String(item && item.name ? item.name : "").trim();
     const normalized = normalizeItemName(name);
     if (!normalized || seen.has(normalized)) continue;
     seen.add(normalized);
-    deduped.push({ name, normalized });
+    dedupedItems.push({ name, normalized });
   }
 
-  if (deduped.length === 0) {
+  if (dedupedItems.length === 0) {
     return {
       supplierDemands: [],
+      inventory: [],
       unfulfilledItems: [],
       itemsRequested: 0,
       matchedItems: 0,
@@ -56,37 +72,92 @@ async function distributeDemand(demand = {}, options = {}) {
     };
   }
 
-  const patterns = deduped.map((it) => new RegExp(`^${escapeRegex(it.name)}$`, "i"));
+  // 1. Resolve items against the global Medicine catalog
+  const catalogMedicines = await Medicine.find({ active: { $ne: false } })
+    .select("name _id")
+    .lean();
 
+  const resolvedItems = dedupedItems.map((it) => {
+    const q = it.normalized;
+    // Simple catalog matching logic
+    const match =
+      catalogMedicines.find((m) => normalizeItemName(m.name) === q) ||
+      catalogMedicines.find((m) => normalizeItemName(m.name).includes(q)) ||
+      catalogMedicines.find((m) => q.includes(normalizeItemName(m.name)));
+
+    return {
+      requestedAs: it.name,
+      normalizedRequested: it.normalized,
+      medicineName: match ? match.name : it.name,
+      normalizedMedicine: normalizeItemName(match ? match.name : it.name),
+      medicineId: match ? match._id : null,
+      inCatalog: !!match,
+    };
+  });
+
+  // 2. Find all approved stockists to check their inventory
   const suppliers = await Stockist.find({
     approved: true,
     status: "approved",
-    $or: [
-      { medicines: { $in: patterns } },
-      { "availableItems.name": { $in: patterns } },
-    ],
   })
-    .select("_id name medicines availableItems")
+    .select("_id name contactPerson phone medicines Medicines availableItems items companies cntxNumber contactNo")
     .lean();
 
   const supplierCatalog = suppliers.map((s) => ({
     supplierId: s._id,
     supplierName: s.name || "Unnamed Supplier",
+    phone: s.phone || s.cntxNumber || s.contactNo || "N/A",
     itemsSet: extractSupplierItems(s),
   }));
 
   const supplierBuckets = new Map();
+  const inventoryMapping = [];
   const unfulfilledItems = [];
-  let matchedItems = 0;
+  let matchedCount = 0;
 
-  for (const item of deduped) {
-    const matches = supplierCatalog.filter((s) => s.itemsSet.has(item.normalized));
+  // 3. Match each resolved item against supplier catalogs
+  for (const item of resolvedItems) {
+    const matches = supplierCatalog.filter((s) => {
+      // Use fuzzy matching: if the stockist has a medicine that encompasses the search term or vice versa
+      for (const sItem of s.itemsSet) {
+        if (
+          sItem === item.normalizedMedicine ||
+          sItem === item.normalizedRequested ||
+          sItem.includes(item.normalizedMedicine) ||
+          item.normalizedMedicine.includes(sItem) ||
+          sItem.includes(item.normalizedRequested) ||
+          item.normalizedRequested.includes(sItem)
+        ) {
+          return true;
+        }
+      }
+      return false;
+    });
+
     if (matches.length === 0) {
-      unfulfilledItems.push({ name: item.name });
+      unfulfilledItems.push({ name: item.requestedAs });
+      inventoryMapping.push({
+        medicineName: item.medicineName,
+        requestedAs: item.requestedAs,
+        stockists: [],
+      });
       continue;
     }
 
-    matchedItems += 1;
+    matchedCount += 1;
+    
+    // Inventory view (Medicine -> Stockists)
+    inventoryMapping.push({
+      medicineName: item.medicineName,
+      requestedAs: item.requestedAs,
+      stockists: matches.map(m => ({
+        id: m.supplierId,
+        name: m.name || m.supplierName,
+        phone: m.phone
+      }))
+    });
+
+    // Supplier view (Stockist -> Items)
     const selected = assignToAllSuppliers ? matches : [matches[0]];
     for (const supplier of selected) {
       const key = String(supplier.supplierId);
@@ -96,7 +167,7 @@ async function distributeDemand(demand = {}, options = {}) {
         items: [],
         status: "pending",
       };
-      existing.items.push({ name: item.name });
+      existing.items.push({ name: item.medicineName });
       supplierBuckets.set(key, existing);
     }
   }
@@ -105,9 +176,10 @@ async function distributeDemand(demand = {}, options = {}) {
 
   return {
     supplierDemands,
+    inventory: inventoryMapping,
     unfulfilledItems,
-    itemsRequested: deduped.length,
-    matchedItems,
+    itemsRequested: dedupedItems.length,
+    matchedItems: matchedCount,
     suppliersInvolved: supplierDemands.length,
     assignToAllSuppliers,
   };

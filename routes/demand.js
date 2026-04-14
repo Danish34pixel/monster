@@ -63,13 +63,16 @@ router.post("/create", optionalAuthenticate, async (req, res) => {
     const originalDemand = await Demand.create({
       purchaserId,
       purchaserName,
-      lines: cleanedItems.map((it) => ({
-        name: it.name,
-        qty: 1,
-        status: distribution.unfulfilledItems.some((u) => u.name.toLowerCase() === it.name.toLowerCase())
-          ? "unmatched"
-          : "assigned",
-      })),
+      lines: cleanedItems.map((it) => {
+        const matched = distribution.inventory.find(inv => inv.requestedAs.toLowerCase() === it.name.toLowerCase());
+        return {
+          name: it.name,
+          qty: 1,
+          matchedMedicineName: matched ? matched.medicineName : null,
+          status: (matched && matched.stockists.length > 0) ? "assigned" : "unmatched",
+        };
+      }),
+      inventorySnapshot: distribution.inventory,
       note: body.note || null,
     });
 
@@ -95,13 +98,14 @@ router.post("/create", optionalAuthenticate, async (req, res) => {
         itemsRequested: distribution.itemsRequested,
         matchedItems: distribution.matchedItems,
         suppliersInvolved: distribution.suppliersInvolved,
-        supplierDemands: createdSupplierDemands.map((d) => ({
+        inventory: distribution.inventory, // Added inventory mapping to response
+        supplierDemands: await SupplierDemand.find({ originalDemandId: originalDemand._id }).populate('supplierId', 'name contactPerson phone contactNo address').then(res => res.map(d => ({
           _id: d._id,
           supplierId: d.supplierId,
           items: d.items,
           status: d.status,
           originalDemandId: d.originalDemandId,
-        })),
+        }))),
         unfulfilledItems: distribution.unfulfilledItems,
       },
     });
@@ -223,3 +227,4 @@ router.get("/", async (req, res) => {
 });
 
 module.exports = router;
+

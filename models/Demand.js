@@ -18,6 +18,19 @@ const DemandSchema = new mongoose.Schema(
     purchaserId: { type: String, trim: true, default: null },
     purchaserName: { type: String, trim: true, default: null },
     lines: [DemandLineSchema],
+    inventorySnapshot: [
+      {
+        medicineName: String,
+        requestedAs: String,
+        stockists: [
+          {
+            id: { type: mongoose.Schema.Types.ObjectId, ref: "Stockist" },
+            name: String,
+            phone: String,
+          },
+        ],
+      },
+    ],
     note: { type: String, trim: true, maxlength: 500 },
   },
   { strict: true, timestamps: true }

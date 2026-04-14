@@ -1,4 +1,4 @@
-﻿const mongoose = require("mongoose");
+const mongoose = require("mongoose");
 
 const CompanySchema = new mongoose.Schema(
   {
@@ -11,6 +11,7 @@ const CompanySchema = new mongoose.Schema(
     },
     description: { type: String, trim: true, maxlength: 500 },
     active: { type: Boolean, default: true },
+    stockists: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stockist" }],
   },
   { strict: true, timestamps: true }
 );
