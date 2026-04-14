@@ -72,6 +72,14 @@ async function resolveWorkplace(body = {}, reqUser = null) {
     }
   }
 
+  if (!workForId) {
+    throw new Error(
+      normalizedType === "stockist"
+        ? "Selected wholesaler was not found. Please enter a valid stockist name."
+        : "Selected retailer was not found. Please enter a valid medical name."
+    );
+  }
+
   if (workForId && normalizedType === "stockist" && !mongoose.Types.ObjectId.isValid(workForId)) {
     throw new Error("Invalid stockist selection.");
   }
@@ -164,7 +172,13 @@ exports.createStaff = async (req, res) => {
     return res.status(201).json({ success: true, data: toSafeStaff(staff) });
   } catch (err) {
     const msg = String(err.message || "");
-    if (msg.includes("Please select") || msg.includes("Please enter") || msg.includes("Invalid")) {
+    if (
+      msg.includes("Please select") ||
+      msg.includes("Please enter") ||
+      msg.includes("Please provide") ||
+      msg.includes("not found") ||
+      msg.includes("Invalid")
+    ) {
       return res.status(400).json({ success: false, message: err.message });
     }
     return res.status(500).json({ success: false, message: "Failed to create staff" });
@@ -261,22 +275,97 @@ exports.deleteStaff = async (req, res) => {
   }
 };
 
+exports.getPendingApprovals = async (req, res) => {
+  try {
+    if (!req.user || !["stockist", "user", "admin"].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: "Not authorized" });
+    }
+
+    const filter = { approvalStatus: "pending" };
+
+    if (req.user.role === "stockist") {
+      filter.workForType = "stockist";
+      filter.workForId = req.user._id;
+    } else if (req.user.role === "user") {
+      filter.workForType = "medical";
+      filter.workForId = req.user._id;
+    }
+
+    const data = await Staff.find(filter)
+      .select("fullName contact email image workForType workForId workForName approvalStatus currentWorkingPlace createdAt")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json({ success: true, data });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: "Failed to load pending approvals" });
+  }
+};
+
 exports.approveStaff = async (req, res) => {
   try {
     const staff = await Staff.findById(req.params.id);
-    if (!staff) return res.status(404).json({ success: false, message: "Staff not found" });
+    if (!staff) {
+      return res.status(404).json({ success: false, message: "Staff not found." });
+    }
 
     const isAdmin = req.user.role === "admin";
-    const isOwner = staff.stockist && String(staff.stockist) === String(req.user._id);
+    const isStockistApprover =
+      req.user.role === "stockist" &&
+      staff.workForType === "stockist" &&
+      String(staff.workForId) === String(req.user._id);
+    const isMedicalApprover =
+      req.user.role === "user" &&
+      staff.workForType === "medical" &&
+      String(staff.workForId) === String(req.user._id);
 
-    if (!isAdmin && !isOwner) {
+    if (!isAdmin && !isStockistApprover && !isMedicalApprover) {
       return res.status(403).json({ success: false, message: "Not authorized to approve this staff." });
     }
 
+    staff.approvalStatus = "approved";
     staff.approved = true;
+    staff.approvedAt = new Date();
+    staff.approvedBy = req.user._id;
+    staff.declinedAt = undefined;
+    staff.declinedBy = undefined;
     await staff.save();
-    return res.json({ success: true, message: "Staff approved" });
+
+    return res.json({ success: true, message: "Staff approved successfully.", data: toSafeStaff(staff) });
   } catch (err) {
-    return res.status(500).json({ success: false, message: "Action failed" });
+    return res.status(500).json({ success: false, message: "Failed to approve staff" });
+  }
+};
+
+exports.declineStaff = async (req, res) => {
+  try {
+    const staff = await Staff.findById(req.params.id);
+    if (!staff) {
+      return res.status(404).json({ success: false, message: "Staff not found." });
+    }
+
+    const isAdmin = req.user.role === "admin";
+    const isStockistApprover =
+      req.user.role === "stockist" &&
+      staff.workForType === "stockist" &&
+      String(staff.workForId) === String(req.user._id);
+    const isMedicalApprover =
+      req.user.role === "user" &&
+      staff.workForType === "medical" &&
+      String(staff.workForId) === String(req.user._id);
+
+    if (!isAdmin && !isStockistApprover && !isMedicalApprover) {
+      return res.status(403).json({ success: false, message: "Not authorized to decline this staff." });
+    }
+
+    staff.approvalStatus = "declined";
+    staff.approved = false;
+    staff.declinedAt = new Date();
+    staff.declinedBy = req.user._id;
+    await staff.save();
+
+    return res.json({ success: true, message: "Staff declined.", data: toSafeStaff(staff) });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: "Failed to decline staff" });
   }
 };

@@ -29,6 +29,11 @@ const StockistSchema = new mongoose.Schema(
     bloodGroup: { type: String, trim: true, maxlength: 5 },
     // List of medicine names this stockist carries in inventory
     medicines: [{ type: String, trim: true }],
+    availableItems: [
+      {
+        name: { type: String, trim: true },
+      },
+    ],
     profileImageUrl: { type: String, trim: true },
     roleType: { type: String, trim: true, maxlength: 40 },
     cntxNumber: { type: String, trim: true, maxlength: 40 },

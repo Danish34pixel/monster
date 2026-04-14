@@ -85,6 +85,14 @@ async function resolveStaffWorkplaceFromPayload(payload = {}) {
     }
   }
 
+  if (!resolvedId) {
+    throw new Error(
+      normalizedType === "stockist"
+        ? "Selected wholesaler was not found. Please enter a valid stockist name."
+        : "Selected retailer was not found. Please enter a valid medical name."
+    );
+  }
+
   return {
     workForType: normalizedType,
     workForId: resolvedId,
@@ -274,7 +282,11 @@ router.post(
       });
     } catch (error) {
       cleanupUploads(req);
-      if (String(error.message || "").includes("Please select") || String(error.message || "").includes("Please provide")) {
+      if (
+        String(error.message || "").includes("Please select") ||
+        String(error.message || "").includes("Please provide") ||
+        String(error.message || "").includes("not found")
+      ) {
         return res.status(400).json({ success: false, message: error.message });
       }
       return res.status(500).json({ success: false, message: "Server error during staff signup" });
