@@ -34,7 +34,7 @@ exports.getMedicines = async (req, res) => {
   }
 };
 
-async function buildMedicinePayload(body = {}) {
+async function buildMedicinePayload(body = {}, currentUser = null) {
   const payload = {
     name: body.name,
     genericName: body.genericName,
@@ -119,6 +119,26 @@ async function buildMedicinePayload(body = {}) {
   payload.stockists = Array.from(stockistIdCandidates);
   payload.stockistNames = Array.from(resolvedStockistNames);
 
+  if (
+    currentUser &&
+    currentUser.role === "stockist" &&
+    mongoose.Types.ObjectId.isValid(String(currentUser._id))
+  ) {
+    const creatorId = String(currentUser._id);
+    if (!payload.stockists.includes(creatorId)) {
+      payload.stockists.push(creatorId);
+    }
+    const creatorName =
+      typeof currentUser.name === "string" && currentUser.name.trim()
+        ? currentUser.name.trim()
+        : typeof currentUser.title === "string" && currentUser.title.trim()
+          ? currentUser.title.trim()
+          : null;
+    if (creatorName && !payload.stockistNames.includes(creatorName)) {
+      payload.stockistNames.push(creatorName);
+    }
+  }
+
   let companyInput = body.company;
   let companyId = null;
   let companyName = null;
@@ -141,8 +161,12 @@ async function buildMedicinePayload(body = {}) {
     }
   } else if (typeof companyId === "string" && companyId.trim()) {
     const companyNameFromString = companyId.trim();
+    const regexSafe = companyNameFromString.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&",
+    );
     const company = await Company.findOne({
-      name: companyNameFromString,
+      name: { $regex: new RegExp(`^${regexSafe}$`, "i") },
     })
       .select("_id name")
       .lean();
@@ -163,8 +187,48 @@ async function buildMedicinePayload(body = {}) {
 
 async function handleMedicineCreate(req, res) {
   try {
-    const payload = await buildMedicinePayload(req.body || {});
-    const medicine = await Medicine.create(payload);
+    const payload = await buildMedicinePayload(req.body || {}, req.user);
+    let medicine = await Medicine.create(payload);
+
+    // Ensure persistent name fields are populated from referenced records.
+    const updateFields = {};
+
+    if (!medicine.companyName && medicine.company) {
+      const company = await Company.findById(medicine.company)
+        .select("name")
+        .lean();
+      if (company?.name) {
+        updateFields.companyName = company.name;
+      }
+    }
+
+    if (
+      Array.isArray(medicine.stockists) &&
+      medicine.stockists.length > 0 &&
+      (!Array.isArray(medicine.stockistNames) ||
+        medicine.stockistNames.length < medicine.stockists.length)
+    ) {
+      const stockistDocs = await Stockist.find({
+        _id: { $in: medicine.stockists },
+      })
+        .select("name")
+        .lean();
+      const resolvedNames = new Set(
+        Array.isArray(medicine.stockistNames) ? medicine.stockistNames : [],
+      );
+      stockistDocs.forEach((doc) => {
+        if (doc?.name) resolvedNames.add(doc.name);
+      });
+      if (resolvedNames.size > 0) {
+        updateFields.stockistNames = Array.from(resolvedNames);
+      }
+    }
+
+    if (Object.keys(updateFields).length > 0) {
+      medicine = await Medicine.findByIdAndUpdate(medicine._id, updateFields, {
+        new: true,
+      });
+    }
 
     // DEBUG: Log creation success
     try {

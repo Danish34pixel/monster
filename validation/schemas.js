@@ -98,9 +98,11 @@ const companyReferenceSchema = z.union([
       _id: z.string().trim().min(1).optional(),
       id: z.string().trim().min(1).optional(),
       value: z.string().trim().min(1).optional(),
+      name: z.string().trim().min(1).optional(),
+      label: z.string().trim().min(1).optional(),
     })
-    .refine((obj) => obj._id || obj.id || obj.value, {
-      message: "Company object must contain _id, id, or value",
+    .refine((obj) => obj._id || obj.id || obj.value || obj.name || obj.label, {
+      message: "Company object must contain _id, id, value, name, or label",
     }),
 ]);
 

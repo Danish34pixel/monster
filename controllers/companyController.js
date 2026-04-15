@@ -70,9 +70,11 @@ exports.createCompany = async (req, res) => {
     const idCandidates = normalizedStockists.filter((item) =>
       mongoose.Types.ObjectId.isValid(String(item)),
     );
-    const nameCandidates = normalizedStockists
+    const rawNameCandidates = normalizedStockists
       .filter((item) => !mongoose.Types.ObjectId.isValid(String(item)))
-      .map((item) => normalizeName(item));
+      .map((item) => String(item).trim())
+      .filter(Boolean);
+    const nameCandidates = rawNameCandidates.map((item) => normalizeName(item));
 
     const query = [];
     if (idCandidates.length > 0) {
@@ -95,12 +97,25 @@ exports.createCompany = async (req, res) => {
         : [];
 
     const stockistIds = stockistDocs.map((s) => String(s._id));
+    const matchedNames = stockistDocs
+      .map((s) => String(s.name).trim())
+      .filter(Boolean);
     const payload = {
       name,
       description,
       active: typeof active === "boolean" ? active : true,
       stockists: stockistIds,
-      stockistNames: stockistDocs.map((s) => s.name).filter(Boolean),
+      stockistNames: Array.from(
+        new Set([
+          ...matchedNames,
+          ...rawNameCandidates.filter(
+            (name) =>
+              !matchedNames.some(
+                (matched) => matched.toLowerCase() === name.toLowerCase(),
+              ),
+          ),
+        ]),
+      ),
     };
 
     const company = await Company.create(payload);
