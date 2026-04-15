@@ -9,7 +9,9 @@ async function resolveUserFromToken(decoded) {
   if (!userId) return null;
 
   if (role === "stockist") {
-    const stockist = await Stockist.findById(userId).select("-password -resetPasswordToken -resetPasswordExpires");
+    const stockist = await Stockist.findById(userId).select(
+      "-password -resetPasswordToken -resetPasswordExpires",
+    );
     if (!stockist) return null;
     const obj = stockist.toObject();
     obj.role = "stockist";
@@ -17,7 +19,9 @@ async function resolveUserFromToken(decoded) {
   }
 
   if (role === "purchaser") {
-    const purchaser = await Purchaser.findById(userId).select("-password -resetPasswordToken -resetPasswordExpires");
+    const purchaser = await Purchaser.findById(userId).select(
+      "-password -resetPasswordToken -resetPasswordExpires",
+    );
     if (!purchaser) return null;
     const obj = purchaser.toObject();
     obj.role = "purchaser";
@@ -25,14 +29,18 @@ async function resolveUserFromToken(decoded) {
   }
 
   if (role === "staff") {
-    const staff = await Staff.findById(userId).select("-password -resetPasswordToken -resetPasswordExpires");
+    const staff = await Staff.findById(userId).select(
+      "-password -resetPasswordToken -resetPasswordExpires",
+    );
     if (!staff) return null;
     const obj = staff.toObject();
     obj.role = "staff";
     return obj;
   }
 
-  const user = await User.findById(userId).select("-password -resetPasswordToken -resetPasswordExpires");
+  const user = await User.findById(userId).select(
+    "-password -resetPasswordToken -resetPasswordExpires",
+  );
   if (!user) return null;
   const obj = user.toObject();
   obj.role = obj.role || "user";
@@ -65,12 +73,18 @@ const authenticate = async (req, res, next) => {
     return next();
   } catch (error) {
     if (error.name === "TokenExpiredError") {
-      return res.status(401).json({ success: false, message: "Token expired." });
+      return res
+        .status(401)
+        .json({ success: false, message: "Token expired." });
     }
     if (error.name === "JsonWebTokenError") {
-      return res.status(401).json({ success: false, message: "Invalid token." });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid token." });
     }
-    return res.status(500).json({ success: false, message: "Token verification failed." });
+    return res
+      .status(500)
+      .json({ success: false, message: "Token verification failed." });
   }
 };
 
@@ -113,8 +127,19 @@ const isAdmin = (req, res, next) => {
   return next();
 };
 
+const isAdminOrStockist = (req, res, next) => {
+  if (!req.user || !["admin", "stockist"].includes(req.user.role)) {
+    return res.status(403).json({
+      success: false,
+      message: "Access denied. Admin or stockist privileges required.",
+    });
+  }
+  return next();
+};
+
 module.exports = {
   authenticate,
   optionalAuthenticate,
   isAdmin,
+  isAdminOrStockist,
 };

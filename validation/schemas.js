@@ -69,18 +69,56 @@ const staffCreateSchema = z.object({
   workForName: z.string().trim().min(2).max(120).optional(),
 });
 
+const stockistReferenceSchema = z.union([
+  z.string().trim().min(1),
+  z
+    .object({
+      _id: z.string().trim().min(1).optional(),
+      id: z.string().trim().min(1).optional(),
+      value: z.string().trim().min(1).optional(),
+      name: z.string().trim().min(1).optional(),
+      label: z.string().trim().min(1).optional(),
+    })
+    .refine((obj) => obj._id || obj.id || obj.value || obj.name || obj.label, {
+      message: "Stockist object must contain _id, id, value, name, or label",
+    }),
+]);
+
 const companyCreateSchema = z.object({
   name: z.string().trim().min(2).max(120),
   description: z.string().trim().max(500).optional(),
   active: z.boolean().optional(),
+  stockists: z.array(stockistReferenceSchema).optional(),
 });
+
+const companyReferenceSchema = z.union([
+  z.string().trim().min(1),
+  z
+    .object({
+      _id: z.string().trim().min(1).optional(),
+      id: z.string().trim().min(1).optional(),
+      value: z.string().trim().min(1).optional(),
+    })
+    .refine((obj) => obj._id || obj.id || obj.value, {
+      message: "Company object must contain _id, id, or value",
+    }),
+]);
 
 const medicineCreateSchema = z.object({
   name: z.string().trim().min(2).max(120),
   genericName: z.string().trim().max(120).optional(),
   manufacturer: z.string().trim().max(120).optional(),
-  price: z.number().nonnegative().optional(),
-  company: z.string().trim().optional(),
+  price: z.preprocess((val) => {
+    if (typeof val === "string") {
+      const num = Number(val.trim());
+      return Number.isFinite(num) ? num : val;
+    }
+    return val;
+  }, z.number().nonnegative().optional()),
+  category: z.string().trim().max(120).optional(),
+  company: companyReferenceSchema.optional(),
+  stockists: z.array(stockistReferenceSchema).optional(),
+  stockistIds: z.array(stockistReferenceSchema).optional(),
 });
 
 const stockistCreateSchema = z.object({

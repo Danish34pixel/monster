@@ -135,13 +135,35 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 // express-mongo-sanitize needs to mutate them, so we make them writable here.
 app.use((req, res, next) => {
   ['query', 'body', 'params'].forEach((prop) => {
-    if (req[prop]) {
+    try {
+      // Check if we can already write to it
+      const descriptor = Object.getOwnPropertyDescriptor(req, prop);
+      if (descriptor && descriptor.writable) return;
+
+      const val = req[prop];
+      
+      // Attempt to redefine the property on the specific request instance
       Object.defineProperty(req, prop, {
-        value: req[prop],
+        value: val,
         writable: true,
         enumerable: true,
         configurable: true,
       });
+    } catch (e) {
+      // If it fails, we log it, but often it works even if getOwnPropertyDescriptor returns null (inherited)
+      if (req[prop] !== undefined) {
+        try {
+          const val = req[prop];
+          req[prop] = val; // Try direct assignment
+        } catch (assignError) {
+          // Final fallback: just try to force it
+          try {
+            Object.defineProperty(req, prop, { value: req[prop], writable: true });
+          } catch (f) {
+             console.warn(`Shim unable to redefine req.${prop}:`, e.message);
+          }
+        }
+      }
     }
   });
   next();

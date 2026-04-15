@@ -11,7 +11,10 @@ const {
 
 function sanitizeStockist(stockist) {
   if (!stockist) return null;
-  const obj = typeof stockist.toObject === "function" ? stockist.toObject() : { ...stockist };
+  const obj =
+    typeof stockist.toObject === "function"
+      ? stockist.toObject()
+      : { ...stockist };
   delete obj.password;
   delete obj.resetPasswordToken;
   delete obj.resetPasswordExpires;
@@ -147,9 +150,11 @@ exports.getStockists = async (req, res) => {
       debugVersion: "v1.0.3-linkage-fix",
     });
   } catch (err) {
-    require('fs').writeFileSync('errlog.txt', String(err.stack || err.message));
+    require("fs").writeFileSync("errlog.txt", String(err.stack || err.message));
     console.error("DEBUG list stockists err: ", err);
-    return res.status(500).json({ success: false, message: "Failed to fetch stockists" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch stockists" });
   }
 };
 
@@ -162,7 +167,9 @@ exports.searchByMedicine = async (req, res) => {
     const rawName = String(req.query.name || "").trim();
     const strict = String(req.query.strict || "").toLowerCase() === "true";
     if (!rawName) {
-      return res.status(400).json({ success: false, message: "name query parameter is required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "name query parameter is required" });
     }
 
     const queryKey = normalizeMedicineKey(rawName);
@@ -170,7 +177,9 @@ exports.searchByMedicine = async (req, res) => {
       status: "approved",
       approved: true,
     })
-      .select("name contactPerson phone cntxNumber email address.city address.state medicines availableItems")
+      .select(
+        "name contactPerson phone cntxNumber email address.city address.state medicines availableItems",
+      )
       .lean();
 
     const exactMatches = approvedStockists.filter((stockist) => {
@@ -179,14 +188,29 @@ exports.searchByMedicine = async (req, res) => {
     });
 
     if (exactMatches.length > 0) {
-      return res.json({ success: true, count: exactMatches.length, data: exactMatches, matchType: "inventory" });
+      return res.json({
+        success: true,
+        count: exactMatches.length,
+        data: exactMatches,
+        matchType: "inventory",
+      });
     }
 
     if (strict) {
-      return res.json({ success: true, count: 0, data: [], matchType: "inventory" });
+      return res.json({
+        success: true,
+        count: 0,
+        data: [],
+        matchType: "inventory",
+      });
     }
 
-    return res.json({ success: true, count: approvedStockists.length, data: approvedStockists, matchType: "general" });
+    return res.json({
+      success: true,
+      count: approvedStockists.length,
+      data: approvedStockists,
+      matchType: "general",
+    });
   } catch (err) {
     console.error("searchByMedicine error:", err);
     return res.status(500).json({ success: false, message: "Search failed" });
@@ -196,26 +220,38 @@ exports.searchByMedicine = async (req, res) => {
 exports.uploadLicenseImage = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: "No file uploaded" });
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
     }
 
     const result = await uploadToCloudinary(req.file, "stockist/licenses");
-    return res.status(200).json({ success: true, url: result.url, public_id: result.public_id });
+    return res
+      .status(200)
+      .json({ success: true, url: result.url, public_id: result.public_id });
   } catch (err) {
-    return res.status(500).json({ success: false, message: "License upload failed" });
+    return res
+      .status(500)
+      .json({ success: false, message: "License upload failed" });
   }
 };
 
 exports.uploadProfileImage = async (req, res) => {
   try {
     if (!req.file) {
-      return res.status(400).json({ success: false, message: "No file uploaded" });
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
     }
 
     const result = await uploadToCloudinary(req.file, "stockist/profile");
-    return res.status(200).json({ success: true, url: result.url, public_id: result.public_id });
+    return res
+      .status(200)
+      .json({ success: true, url: result.url, public_id: result.public_id });
   } catch (err) {
-    return res.status(500).json({ success: false, message: "Profile upload failed" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Profile upload failed" });
   }
 };
 
@@ -223,7 +259,9 @@ exports.createStockist = async (req, res) => {
   try {
     const payload = buildStockistPayload(req.body || {});
     if (!payload.name) {
-      return res.status(400).json({ success: false, message: "Stockist name is required." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Stockist name is required." });
     }
 
     await ensureUnique(payload.email, payload.phone);
@@ -237,12 +275,16 @@ exports.createStockist = async (req, res) => {
     payload.declined = false;
 
     const stockist = await Stockist.create(payload);
-    return res.status(201).json({ success: true, data: sanitizeStockist(stockist) });
+    return res
+      .status(201)
+      .json({ success: true, data: sanitizeStockist(stockist) });
   } catch (err) {
     if (String(err.message || "").includes("already in use")) {
       return res.status(400).json({ success: false, message: err.message });
     }
-    return res.status(500).json({ success: false, message: "Failed to create stockist" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to create stockist" });
   }
 };
 
@@ -250,7 +292,9 @@ exports.registerStockist = async (req, res) => {
   try {
     const payload = buildStockistPayload(req.body || {});
     if (!payload.name) {
-      return res.status(400).json({ success: false, message: "Stockist name is required." });
+      return res
+        .status(400)
+        .json({ success: false, message: "Stockist name is required." });
     }
 
     await ensureUnique(payload.email, payload.phone);
@@ -261,11 +305,17 @@ exports.registerStockist = async (req, res) => {
 
     if (req.files) {
       if (req.files.profileImage && req.files.profileImage[0]) {
-        const profileUpload = await uploadToCloudinary(req.files.profileImage[0], "stockist/profile");
+        const profileUpload = await uploadToCloudinary(
+          req.files.profileImage[0],
+          "stockist/profile",
+        );
         payload.profileImageUrl = profileUpload.url;
       }
       if (req.files.drugLicenseImage && req.files.drugLicenseImage[0]) {
-        const licenseUpload = await uploadToCloudinary(req.files.drugLicenseImage[0], "stockist/licenses");
+        const licenseUpload = await uploadToCloudinary(
+          req.files.drugLicenseImage[0],
+          "stockist/licenses",
+        );
         payload.licenseImageUrl = licenseUpload.url;
       }
     }
@@ -288,7 +338,9 @@ exports.registerStockist = async (req, res) => {
       return res.status(400).json({ success: false, message: err.message });
     }
     console.error("Stockist registration failed:", err);
-    return res.status(500).json({ success: false, message: "Failed to register stockist" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to register stockist" });
   }
 };
 
@@ -296,17 +348,26 @@ exports.verifyStockistPassword = async (req, res) => {
   try {
     const { id, password } = req.body || {};
     if (!id || !password || !mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "id and password are required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "id and password are required" });
     }
 
     const stockist = await Stockist.findById(id).select("+password");
     if (!stockist || !stockist.password) {
-      return res.status(404).json({ success: false, message: "Stockist not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Stockist not found" });
     }
 
-    const match = await bcrypt.compare(String(password), String(stockist.password));
+    const match = await bcrypt.compare(
+      String(password),
+      String(stockist.password),
+    );
     if (!match) {
-      return res.status(401).json({ success: false, message: "Invalid password" });
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid password" });
     }
 
     return res.status(200).json({
@@ -321,7 +382,9 @@ exports.verifyStockistPassword = async (req, res) => {
       },
     });
   } catch (err) {
-    return res.status(500).json({ success: false, message: "Password verification failed" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Password verification failed" });
   }
 };
 
@@ -329,20 +392,32 @@ exports.getStockistById = async (req, res) => {
   try {
     const { id } = req.params || {};
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Stockist id required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Stockist id required" });
     }
 
     const stockist = await Stockist.findById(id)
-      .select("name contactPerson phone email address profileImageUrl licenseImageUrl roleType status approved declined approvedAt companies createdAt updatedAt")
+      .select(
+        "name contactPerson phone email address profileImageUrl licenseImageUrl roleType status approved declined approvedAt companies createdAt updatedAt",
+      )
+      .populate({
+        path: "companies",
+        select: "name description active stockistNames",
+      })
       .lean();
 
     if (!stockist) {
-      return res.status(404).json({ success: false, message: "Stockist not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Stockist not found" });
     }
 
     return res.status(200).json({ success: true, data: stockist });
   } catch (err) {
-    return res.status(500).json({ success: false, message: "Failed to fetch stockist" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch stockist" });
   }
 };
 
@@ -350,12 +425,16 @@ exports.approveStockist = async (req, res) => {
   try {
     const { id } = req.params || {};
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Stockist id required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Stockist id required" });
     }
 
     const stockist = await Stockist.findById(id);
     if (!stockist) {
-      return res.status(404).json({ success: false, message: "Stockist not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Stockist not found" });
     }
 
     stockist.approved = true;
@@ -365,9 +444,15 @@ exports.approveStockist = async (req, res) => {
     stockist.approvedBy = String(req.user._id);
     await stockist.save();
 
-    return res.json({ success: true, message: "Stockist approved", data: sanitizeStockist(stockist) });
+    return res.json({
+      success: true,
+      message: "Stockist approved",
+      data: sanitizeStockist(stockist),
+    });
   } catch (err) {
-    return res.status(500).json({ success: false, message: "Failed to approve stockist" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to approve stockist" });
   }
 };
 
@@ -375,12 +460,16 @@ exports.declineStockist = async (req, res) => {
   try {
     const { id } = req.params || {};
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return res.status(400).json({ success: false, message: "Stockist id required" });
+      return res
+        .status(400)
+        .json({ success: false, message: "Stockist id required" });
     }
 
     const stockist = await Stockist.findById(id);
     if (!stockist) {
-      return res.status(404).json({ success: false, message: "Stockist not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Stockist not found" });
     }
 
     stockist.declined = true;
@@ -389,8 +478,14 @@ exports.declineStockist = async (req, res) => {
     stockist.declinedAt = new Date();
     await stockist.save();
 
-    return res.json({ success: true, message: "Stockist declined", data: sanitizeStockist(stockist) });
+    return res.json({
+      success: true,
+      message: "Stockist declined",
+      data: sanitizeStockist(stockist),
+    });
   } catch (err) {
-    return res.status(500).json({ success: false, message: "Failed to decline stockist" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to decline stockist" });
   }
 };
