@@ -17,5 +17,12 @@ router.post("/", authenticate, (req, res, next) => {
     message: "Access denied. Insufficient privileges.",
   });
 }, validateBody(companyCreateSchema), companyController.createCompany);
+router.put(
+  "/:id",
+  authenticate,
+  isAdmin,
+  validateBody(companyCreateSchema),
+  companyController.updateCompany,
+);
 
 module.exports = router;

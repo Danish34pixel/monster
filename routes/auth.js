@@ -27,7 +27,10 @@ const {
   updateProfileSchema,
   purchaserSignupSchema,
 } = require("../validation/schemas");
-const { forgotPassword, resetPassword } = require("../controllers/passwordController");
+const {
+  forgotPassword,
+  resetPassword,
+} = require("../controllers/passwordController");
 const {
   issueAccessToken,
   issueRefreshToken,
@@ -39,7 +42,10 @@ const router = express.Router();
 
 function sanitizeUser(userDoc, role) {
   if (!userDoc) return null;
-  const obj = typeof userDoc.toObject === "function" ? userDoc.toObject() : { ...userDoc };
+  const obj =
+    typeof userDoc.toObject === "function"
+      ? userDoc.toObject()
+      : { ...userDoc };
   delete obj.password;
   delete obj.resetPasswordToken;
   delete obj.resetPasswordExpires;
@@ -47,11 +53,20 @@ function sanitizeUser(userDoc, role) {
   return obj;
 }
 
+const optionalSingleUpload = (fieldName) => (req, res, next) => {
+  if (req.is("multipart/form-data")) {
+    return upload.single(fieldName)(req, res, next);
+  }
+  return next();
+};
+
 async function resolveStaffWorkplaceFromPayload(payload = {}) {
   const typeRaw = payload.workForType || payload.worksUnderType;
   const nameRaw = payload.workForName || payload.worksUnderName;
   const idRaw = payload.workForId || payload.workFor;
-  const type = String(typeRaw || "").trim().toLowerCase();
+  const type = String(typeRaw || "")
+    .trim()
+    .toLowerCase();
   const normalizedType = type === "retailer" ? "medical" : type;
   const name = String(nameRaw || "").trim();
   const id = idRaw && String(idRaw).length === 24 ? idRaw : undefined;
@@ -89,7 +104,7 @@ async function resolveStaffWorkplaceFromPayload(payload = {}) {
     throw new Error(
       normalizedType === "stockist"
         ? "Selected wholesaler was not found. Please enter a valid stockist name."
-        : "Selected retailer was not found. Please enter a valid medical name."
+        : "Selected retailer was not found. Please enter a valid medical name.",
     );
   }
 
@@ -128,24 +143,23 @@ async function resolveAccountByRole(email, role) {
 router.post(
   "/signup",
   authLimiter,
-  upload.single("drugLicenseImage"),
+  optionalSingleUpload("drugLicenseImage"),
   validateUploadedFiles,
   handleUploadError,
   async (req, res) => {
     try {
+      console.log("SIGNUP REQ", {
+        contentType: req.headers["content-type"],
+        isMultipart: req.is("multipart/form-data"),
+        body: req.body,
+        file: !!req.file,
+      });
       const parse = signupSchema.safeParse(req.body || {});
       if (!parse.success) {
         return res.status(400).json({
           success: false,
           message: "Invalid request payload",
           errors: parse.error.issues.map((i) => i.message),
-        });
-      }
-
-      if (!req.file) {
-        return res.status(400).json({
-          success: false,
-          message: "drugLicenseImage is required",
         });
       }
 
@@ -167,7 +181,23 @@ router.post(
         });
       }
 
-      const uploadResult = await uploadToCloudinary(req.file, "medtek/licenses");
+      let drugLicenseImageUrl;
+      if (req.file) {
+        const uploadResult = await uploadToCloudinary(
+          req.file,
+          "medtek/licenses",
+        );
+        drugLicenseImageUrl = uploadResult.url;
+      } else if (payload.drugLicenseImage) {
+        drugLicenseImageUrl = payload.drugLicenseImage;
+      } else {
+        return res.status(400).json({
+          success: false,
+          message:
+            "drugLicenseImage is required. Upload a file or provide a valid image URL.",
+        });
+      }
+
       const hashedPassword = await bcrypt.hash(payload.password, 12);
 
       const user = await User.create({
@@ -177,7 +207,7 @@ router.post(
         email,
         contactNo: payload.contactNo,
         drugLicenseNo,
-        drugLicenseImage: uploadResult.url,
+        drugLicenseImage: drugLicenseImageUrl,
         password: hashedPassword,
       });
 
@@ -187,14 +217,20 @@ router.post(
         user: sanitizeUser(user, user.role || "user"),
       });
     } catch (error) {
-      console.error("Signup error:", error && error.message);
+      console.error("Signup error:", error && error.message, error);
       if (error && error.code === 11000) {
-        return res.status(409).json({ success: false, message: "Duplicate value detected" });
+        return res
+          .status(409)
+          .json({ success: false, message: "Duplicate value detected" });
       }
-      return res.status(500).json({ success: false, message: "Server error during registration" });
+      return res.status(500).json({
+        success: false,
+        message: "Server error during registration",
+        error: error.message || String(error),
+      });
     }
   },
-  cleanupUploads
+  cleanupUploads,
 );
 
 router.get("/medical-owners", async (req, res) => {
@@ -212,20 +248,30 @@ router.get("/medical-owners", async (req, res) => {
       })),
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: "Failed to load medical owners" });
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to load medical owners" });
   }
 });
 
 router.post(
   "/staff-signup",
   authLimiter,
-  upload.fields([{ name: "image", maxCount: 1 }, { name: "aadharCard", maxCount: 1 }]),
+  upload.fields([
+    { name: "image", maxCount: 1 },
+    { name: "aadharCard", maxCount: 1 },
+  ]),
   validateUploadedFiles,
   handleUploadError,
   async (req, res) => {
     try {
       if (!req.files || !req.files.image || !req.files.aadharCard) {
-        return res.status(400).json({ success: false, message: "Image and Aadhar card are required" });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: "Image and Aadhar card are required",
+          });
       }
 
       const {
@@ -238,13 +284,17 @@ router.post(
         isFresher,
       } = req.body;
       if (!fullName || !contact || !email || !password) {
-        return res.status(400).json({ success: false, message: "All fields are required" });
+        return res
+          .status(400)
+          .json({ success: false, message: "All fields are required" });
       }
 
       const normalizedEmail = email.toLowerCase();
       const existing = await Staff.findOne({ email: normalizedEmail });
       if (existing) {
-        return res.status(409).json({ success: false, message: "Email already registered" });
+        return res
+          .status(409)
+          .json({ success: false, message: "Email already registered" });
       }
 
       const hashedPassword = await bcrypt.hash(password, 12);
@@ -284,90 +334,116 @@ router.post(
       ) {
         return res.status(400).json({ success: false, message: error.message });
       }
-      return res.status(500).json({ success: false, message: "Server error during staff signup" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Server error during staff signup" });
     }
   },
-  cleanupUploads
+  cleanupUploads,
 );
 
-router.post("/login", authLimiter, validateBody(loginSchema), async (req, res) => {
-  try {
-    const { email, password, role } = req.body;
-    const normalizedEmail = email.toLowerCase();
+router.post(
+  "/login",
+  authLimiter,
+  validateBody(loginSchema),
+  async (req, res) => {
+    try {
+      const { email, password, role } = req.body;
+      const normalizedEmail = email.toLowerCase();
 
-    const account = await resolveAccountByRole(normalizedEmail, role);
-    if (!account) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
-    }
-
-    const { user } = account;
-    const isMatch = await bcrypt.compare(password, String(user.password));
-    if (!isMatch) {
-      return res.status(401).json({ success: false, message: "Invalid credentials" });
-    }
-
-    if (account.role === "stockist") {
-      if (user.status !== "approved") {
-        return res.status(403).json({
-          success: false,
-          message:
-            user.status === "declined"
-              ? "Your registration was declined by admin."
-              : "Your account is under review. Please wait for admin approval.",
-        });
+      const account = await resolveAccountByRole(normalizedEmail, role);
+      if (!account) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Invalid credentials" });
       }
-    }
 
-    if (account.role === "staff") {
-      const status = user.approvalStatus || (user.approved ? "approved" : "pending");
-      if (status !== "approved") {
-        return res.status(403).json({
-          success: false,
-          message:
-            status === "declined"
-              ? "Your staff request was declined by the selected organization."
-              : "Your staff account is pending approval from your organization.",
-          status,
-        });
+      const { user } = account;
+      const isMatch = await bcrypt.compare(password, String(user.password));
+      if (!isMatch) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Invalid credentials" });
       }
+
+      if (account.role === "stockist") {
+        if (user.status !== "approved") {
+          return res.status(403).json({
+            success: false,
+            message:
+              user.status === "declined"
+                ? "Your registration was declined by admin."
+                : "Your account is under review. Please wait for admin approval.",
+          });
+        }
+      }
+
+      if (account.role === "staff") {
+        const status =
+          user.approvalStatus || (user.approved ? "approved" : "pending");
+        if (status !== "approved") {
+          return res.status(403).json({
+            success: false,
+            message:
+              status === "declined"
+                ? "Your staff request was declined by the selected organization."
+                : "Your staff account is pending approval from your organization.",
+            status,
+          });
+        }
+      }
+
+      const payload = buildTokenPayload(user, account.role);
+      const accessToken = issueAccessToken(payload);
+      const refreshToken = issueRefreshToken(payload);
+
+      return res.json({
+        success: true,
+        message: "Login successful",
+        accessToken,
+        refreshToken,
+        user: sanitizeUser(user, account.role),
+      });
+    } catch (error) {
+      return res
+        .status(500)
+        .json({ success: false, message: "Server error during login" });
     }
+  },
+);
 
-    const payload = buildTokenPayload(user, account.role);
-    const accessToken = issueAccessToken(payload);
-    const refreshToken = issueRefreshToken(payload);
+router.post(
+  "/refresh",
+  refreshLimiter,
+  validateBody(refreshSchema),
+  async (req, res) => {
+    try {
+      const { refreshToken } = req.body;
+      const decoded = verifyRefreshToken(refreshToken);
 
-    return res.json({
-      success: true,
-      message: "Login successful",
-      accessToken,
-      refreshToken,
-      user: sanitizeUser(user, account.role),
-    });
-  } catch (error) {
-    return res.status(500).json({ success: false, message: "Server error during login" });
-  }
-});
+      const account = await resolveAccountByRole(
+        String(decoded.email).toLowerCase(),
+        decoded.role,
+      );
+      if (!account || String(account.user._id) !== String(decoded.userId)) {
+        return res
+          .status(401)
+          .json({ success: false, message: "Invalid refresh token" });
+      }
 
-router.post("/refresh", refreshLimiter, validateBody(refreshSchema), async (req, res) => {
-  try {
-    const { refreshToken } = req.body;
-    const decoded = verifyRefreshToken(refreshToken);
-
-    const account = await resolveAccountByRole(String(decoded.email).toLowerCase(), decoded.role);
-    if (!account || String(account.user._id) !== String(decoded.userId)) {
-      return res.status(401).json({ success: false, message: "Invalid refresh token" });
+      const payload = buildTokenPayload(account.user, decoded.role);
+      return res.json({
+        success: true,
+        accessToken: issueAccessToken(payload),
+        refreshToken: issueRefreshToken(payload),
+      });
+    } catch (error) {
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid refresh token" });
     }
-
-    const payload = buildTokenPayload(account.user, decoded.role);
-    return res.json({
-      success: true,
-      accessToken: issueAccessToken(payload),
-      refreshToken: issueRefreshToken(payload),
-    });
-  } catch (error) {
-    return res.status(401).json({ success: false, message: "Invalid refresh token" });
-  }
-});
+  },
+);
 
 router.get("/me", authenticate, async (req, res) => {
   return res.json({
@@ -379,31 +455,68 @@ router.get("/me", authenticate, async (req, res) => {
 router.get("/status/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    if (!id || id.length !== 24) return res.status(400).json({ success: false, message: "Invalid ID" });
+    if (!id || id.length !== 24)
+      return res.status(400).json({ success: false, message: "Invalid ID" });
 
-    const stockist = await Stockist.findById(id).select("approved declined status").lean();
+    const stockist = await Stockist.findById(id)
+      .select("approved declined status")
+      .lean();
     if (stockist) return res.json({ success: true, data: stockist });
 
-    const user = await User.findById(id).select("approved declined status").lean();
+    const user = await User.findById(id)
+      .select("approved declined status")
+      .lean();
     if (user) return res.json({ success: true, data: user });
 
-    const purchaser = await Purchaser.findById(id).select("approved verified status").lean();
-    if (purchaser) return res.json({ success: true, data: { approved: purchaser.approved || purchaser.verified, declined: false, status: purchaser.approved ? "approved" : "processing" } });
+    const purchaser = await Purchaser.findById(id)
+      .select("approved verified status")
+      .lean();
+    if (purchaser)
+      return res.json({
+        success: true,
+        data: {
+          approved: purchaser.approved || purchaser.verified,
+          declined: false,
+          status: purchaser.approved ? "approved" : "processing",
+        },
+      });
 
-    const staff = await Staff.findById(id).select("approved approvalStatus").lean();
+    const staff = await Staff.findById(id)
+      .select("approved approvalStatus")
+      .lean();
     if (staff) {
-      const status = staff.approvalStatus || (staff.approved ? "approved" : "processing");
-      return res.json({ success: true, data: { approved: status === "approved", declined: status === "declined", status } });
+      const status =
+        staff.approvalStatus || (staff.approved ? "approved" : "processing");
+      return res.json({
+        success: true,
+        data: {
+          approved: status === "approved",
+          declined: status === "declined",
+          status,
+        },
+      });
     }
 
-    return res.status(404).json({ success: false, message: "Record not found" });
+    return res
+      .status(404)
+      .json({ success: false, message: "Record not found" });
   } catch (error) {
     return res.status(500).json({ success: false, message: "Server error" });
   }
 });
 
-router.post("/forgot-password", passwordResetLimiter, validateBody(forgotPasswordSchema), forgotPassword);
-router.post("/reset-password", passwordResetLimiter, validateBody(resetPasswordSchema), resetPassword);
+router.post(
+  "/forgot-password",
+  passwordResetLimiter,
+  validateBody(forgotPasswordSchema),
+  forgotPassword,
+);
+router.post(
+  "/reset-password",
+  passwordResetLimiter,
+  validateBody(resetPasswordSchema),
+  resetPassword,
+);
 
 router.put(
   "/profile",
@@ -414,7 +527,12 @@ router.put(
   async (req, res) => {
     try {
       if (req.user.role !== "user" && req.user.role !== "admin") {
-        return res.status(403).json({ success: false, message: "Only medical owners can update profile" });
+        return res
+          .status(403)
+          .json({
+            success: false,
+            message: "Only medical owners can update profile",
+          });
       }
 
       const parse = updateProfileSchema.safeParse(req.body || {});
@@ -428,14 +546,21 @@ router.put(
 
       const updateData = { ...parse.data };
       if (req.file) {
-        const uploadResult = await uploadToCloudinary(req.file, "medtek/licenses");
+        const uploadResult = await uploadToCloudinary(
+          req.file,
+          "medtek/licenses",
+        );
         updateData.drugLicenseImage = uploadResult.url;
       }
 
-      const updatedUser = await User.findByIdAndUpdate(req.user._id, updateData, {
-        new: true,
-        runValidators: true,
-      }).select("-password -resetPasswordToken -resetPasswordExpires");
+      const updatedUser = await User.findByIdAndUpdate(
+        req.user._id,
+        updateData,
+        {
+          new: true,
+          runValidators: true,
+        },
+      ).select("-password -resetPasswordToken -resetPasswordExpires");
 
       return res.json({
         success: true,
@@ -443,10 +568,15 @@ router.put(
         user: sanitizeUser(updatedUser, updatedUser.role || "user"),
       });
     } catch (error) {
-      return res.status(500).json({ success: false, message: "Server error while updating profile" });
+      return res
+        .status(500)
+        .json({
+          success: false,
+          message: "Server error while updating profile",
+        });
     }
   },
-  cleanupUploads
+  cleanupUploads,
 );
 
 router.post("/logout", authenticate, async (req, res) => {
@@ -496,12 +626,20 @@ router.post(
       ]);
 
       if (userEx || stockistEx || purchaserEx || staffEx) {
-        return res.status(409).json({ success: false, message: "Email already registered" });
+        return res
+          .status(409)
+          .json({ success: false, message: "Email already registered" });
       }
 
       const [aadharUpload, photoUpload] = await Promise.all([
-        uploadToCloudinary(req.files.aadharImage[0], "medi-trap/purchasers/aadhar"),
-        uploadToCloudinary(req.files.personalPhoto[0], "medi-trap/purchasers/photo"),
+        uploadToCloudinary(
+          req.files.aadharImage[0],
+          "medi-trap/purchasers/aadhar",
+        ),
+        uploadToCloudinary(
+          req.files.personalPhoto[0],
+          "medi-trap/purchasers/photo",
+        ),
       ]);
 
       const hashedPassword = await bcrypt.hash(payload.password, 12);
@@ -531,10 +669,12 @@ router.post(
         },
       });
     } catch (error) {
-      return res.status(500).json({ success: false, message: "Internal Server Error" });
+      return res
+        .status(500)
+        .json({ success: false, message: "Internal Server Error" });
     }
   },
-  cleanupUploads
+  cleanupUploads,
 );
 
 module.exports = router;

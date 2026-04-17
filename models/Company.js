@@ -11,8 +11,12 @@ const CompanySchema = new mongoose.Schema(
     },
     description: { type: String, trim: true, maxlength: 500 },
     active: { type: Boolean, default: true },
-    stockists: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stockist" }],
-    stockistNames: [{ type: String, trim: true, maxlength: 120 }],
+    stockists: {
+      type: [{ type: mongoose.Schema.Types.ObjectId, ref: "Stockist" }],
+      default: [],
+    },
+    stockistNames: { type: [String], default: [] },
+    stockistName: { type: String, trim: true }, // Added singular for convenience
   },
   { strict: true, timestamps: true },
 );

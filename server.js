@@ -325,6 +325,10 @@ app.get("/health", (req, res) => {
   });
 });
 
+app.get("/test-version", (req, res) => {
+  res.json({ version: "v4-verified-logic" });
+});
+
 // Development-only debug endpoints to inspect DB state quickly
 if (isDevelopment || process.env.DEBUG_API === "1") {
   app.get("/api/debug/users", async (req, res) => {

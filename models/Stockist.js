@@ -48,6 +48,7 @@ const StockistSchema = new mongoose.Schema(
     approvedAt: Date,
     approvedBy: { type: String, trim: true },
     companies: [{ type: mongoose.Schema.Types.ObjectId, ref: "Company" }],
+    companyNames: [{ type: String, trim: true }],
   },
   { strict: true, timestamps: true }
 );

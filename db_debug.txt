@@ -13,3 +13,11 @@
 [2026-04-15T06:49:11.410Z] Medicine 'eam' linked to 1 stockists
 [2026-04-15T06:51:08.650Z] Created company: ajanta (69df355cdf0bcd17898fc828)
 [2026-04-15T06:51:09.064Z] Linked to 1/1 stockists.
+[2026-04-17T09:06:01.994Z] createCompany req.body: {"name":"dull","stockists":["69df3932df0bcd17898fc867"]}
+[2026-04-17T09:06:02.225Z] Result - Name: dull, Stockists: [69df3932df0bcd17898fc867], Names: [Patel Pharma]
+[2026-04-17T09:07:07.886Z] Created medicine: faahhh (69e1f83bdd81829a04242915)
+[2026-04-17T09:07:08.012Z] Medicine 'faahhh' linked to 1 stockists
+[2026-04-17T10:55:37.273Z] createCompany req.body: {"name":"lobe","stockists":["69e1fe3f9ff1b708f4e3deb5"]}
+[2026-04-17T10:55:37.426Z] Result - Name: lobe, Stockists: [69e1fe3f9ff1b708f4e3deb5], Names: [Royal Pharma]
+[2026-04-17T10:55:52.283Z] Created medicine: kobe (69e211b832f55662d64cdb88)
+[2026-04-17T10:55:52.356Z] Medicine 'kobe' linked to 1 stockists

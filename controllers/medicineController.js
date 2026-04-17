@@ -247,7 +247,13 @@ async function handleMedicineCreate(req, res) {
         try {
           await Stockist.findByIdAndUpdate(
             sid,
-            { $addToSet: { medicines: medicine.name } },
+            {
+              $addToSet: {
+                medicines: medicine.name,
+                companies: medicine.company,
+                companyNames: medicine.companyName,
+              },
+            },
             { new: true },
           );
           updatedStockistIds.add(String(sid));
@@ -269,7 +275,13 @@ async function handleMedicineCreate(req, res) {
       try {
         await Stockist.findByIdAndUpdate(
           req.user._id,
-          { $addToSet: { medicines: medicine.name } },
+          {
+            $addToSet: {
+              medicines: medicine.name,
+              companies: medicine.company,
+              companyNames: medicine.companyName,
+            },
+          },
           { new: true },
         );
         updatedStockistIds.add(String(req.user._id));

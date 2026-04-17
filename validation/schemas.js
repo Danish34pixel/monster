@@ -14,6 +14,11 @@ const signupSchema = z.object({
   contactNo: z.string().trim().min(7).max(20),
   drugLicenseNo: z.string().trim().min(4).max(40),
   password,
+  drugLicenseImage: z
+    .string()
+    .trim()
+    .url("drugLicenseImage must be a valid URL")
+    .optional(),
 });
 
 const loginSchema = z.object({
@@ -89,6 +94,7 @@ const companyCreateSchema = z.object({
   description: z.string().trim().max(500).optional(),
   active: z.boolean().optional(),
   stockists: z.array(stockistReferenceSchema).optional(),
+  stockistNames: z.array(z.string()).optional(),
 });
 
 const companyReferenceSchema = z.union([
