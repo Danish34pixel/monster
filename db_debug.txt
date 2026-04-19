@@ -21,3 +21,11 @@
 [2026-04-17T10:55:37.426Z] Result - Name: lobe, Stockists: [69e1fe3f9ff1b708f4e3deb5], Names: [Royal Pharma]
 [2026-04-17T10:55:52.283Z] Created medicine: kobe (69e211b832f55662d64cdb88)
 [2026-04-17T10:55:52.356Z] Medicine 'kobe' linked to 1 stockists
+[2026-04-19T17:06:30.898Z] createCompany req.body: {"name":"assxdx","stockists":["69e1fe3f9ff1b708f4e3deb5","69de9bc1ec5f2463784537b4"]}
+[2026-04-19T17:06:31.068Z] Result - Name: assxdx, Stockists: [69de9bc1ec5f2463784537b4,69e1fe3f9ff1b708f4e3deb5], Names: [Amit Marketing,Royal Pharma]
+[2026-04-19T17:07:05.850Z] Created medicine: asdd (69e50bb94b70bd0b3a9e073b)
+[2026-04-19T17:07:05.851Z] Medicine 'asdd' linked to 0 stockists
+[2026-04-19T17:08:43.733Z] createCompany req.body: {"name":"azxcvbnm","stockists":["69de9bc1ec5f2463784537b4"]}
+[2026-04-19T17:08:43.864Z] Result - Name: azxcvbnm, Stockists: [69de9bc1ec5f2463784537b4], Names: [Amit Marketing]
+[2026-04-19T17:09:00.318Z] Created medicine: werfft (69e50c2b4b70bd0b3a9e076d)
+[2026-04-19T17:09:00.638Z] Medicine 'werfft' linked to 1 stockists

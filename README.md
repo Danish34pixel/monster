@@ -32,7 +32,6 @@ A robust backend API for the MedTrap medical store application with MongoDB inte
    ```
 
 3. **Environment Configuration**
-
    - Create a `config.env` or `.env` file at the project root and set the required variables. Update the following variables:
      ```env
      MONGO_URI=your_mongodb_connection_string
@@ -249,6 +248,11 @@ CLOUDINARY_API_SECRET=your_api_secret
 PORT=5000
 NODE_ENV=production
 FRONTEND_URL=https://your-frontend-domain.com
+
+# Local development note:
+# Backend listens on http://localhost:5000 by default.
+# If your frontend dev server runs on http://localhost:8081, configure the frontend to proxy
+# API requests to http://localhost:5000 so calls like /api/stockist/register reach the backend.
 ```
 
 ### Production Considerations
@@ -265,13 +269,11 @@ FRONTEND_URL=https://your-frontend-domain.com
 ### Common Issues
 
 1. **MongoDB Connection Failed**
-
    - Check your connection string
    - Ensure network access is allowed
    - Verify database credentials
 
 2. **Cloudinary Upload Failed**
-
    - Check API credentials
    - Verify cloud name
    - Check file size limits

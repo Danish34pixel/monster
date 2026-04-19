@@ -26,10 +26,12 @@ if (!loaded) {
   // (no-op) to keep behavior consistent, but warn the user.
   dotenv.config();
   console.warn(
-    "No config.env or .env file found in Backend or current working directory. Environment variables may be missing."
+    "No config.env or .env file found in Backend or current working directory. Environment variables may be missing.",
   );
 }
-const isDevelopment = process.env.NODE_ENV === "development" || process.env.NODE_ENV !== "production";
+const isDevelopment =
+  process.env.NODE_ENV === "development" ||
+  process.env.NODE_ENV !== "production";
 const express = require("express");
 const mongoose = require("mongoose");
 const cors = require("cors");
@@ -52,7 +54,10 @@ const tryRequireRoute = (basePath) => {
       // Attempt require relative to this file
       return require(`./routes/${v}`);
     } catch (err) {
-      if (err.code !== "MODULE_NOT_FOUND" || !err.message.includes(`./routes/${v}`)) {
+      if (
+        err.code !== "MODULE_NOT_FOUND" ||
+        !err.message.includes(`./routes/${v}`)
+      ) {
         console.error(`Error loading route ./routes/${v}:`, err);
       }
       // continue trying other variants
@@ -61,7 +66,10 @@ const tryRequireRoute = (basePath) => {
       // Attempt alternate relative path (some shims use ../Backend/routes)
       return require(`../routes/${v}`);
     } catch (err) {
-      if (err.code !== "MODULE_NOT_FOUND" || !err.message.includes(`../routes/${v}`)) {
+      if (
+        err.code !== "MODULE_NOT_FOUND" ||
+        !err.message.includes(`../routes/${v}`)
+      ) {
         console.error(`Error loading route ../routes/${v}:`, err);
       }
       // continue
@@ -76,7 +84,7 @@ const tryRequireRoute = (basePath) => {
     res.status(501).json({
       success: false,
       message: "Route not implemented on this deployment.",
-    })
+    }),
   );
   return stub;
 };
@@ -100,7 +108,10 @@ const app = express();
 app.set("trust proxy", 1);
 mongoose.set("strictQuery", true);
 
-if (process.env.NODE_ENV === "production" && process.env.ENFORCE_HTTPS !== "0") {
+if (
+  process.env.NODE_ENV === "production" &&
+  process.env.ENFORCE_HTTPS !== "0"
+) {
   app.use((req, res, next) => {
     const forwardedProto = String(req.headers["x-forwarded-proto"] || "");
     const isSecure = req.secure || forwardedProto.includes("https");
@@ -116,7 +127,7 @@ if (process.env.NODE_ENV === "production" && process.env.ENFORCE_HTTPS !== "0") 
 app.use(
   helmet({
     crossOriginResourcePolicy: { policy: "cross-origin" },
-  })
+  }),
 );
 app.use(
   rateLimit({
@@ -124,59 +135,12 @@ app.use(
     max: Number(process.env.GLOBAL_RATE_LIMIT_MAX || 300),
     standardHeaders: true,
     legacyHeaders: false,
-  })
+  }),
 );
 
-// Middleware
-app.use(express.json({ limit: "10mb" }));
-app.use(express.urlencoded({ extended: true, limit: "10mb" }));
-// Express 5 Compatibility Shim
-// Express 5 makes req.query/req.params/req.body read-only getters in some contexts.
-// express-mongo-sanitize needs to mutate them, so we make them writable here.
-app.use((req, res, next) => {
-  ['query', 'body', 'params'].forEach((prop) => {
-    try {
-      // Check if we can already write to it
-      const descriptor = Object.getOwnPropertyDescriptor(req, prop);
-      if (descriptor && descriptor.writable) return;
-
-      const val = req[prop];
-      
-      // Attempt to redefine the property on the specific request instance
-      Object.defineProperty(req, prop, {
-        value: val,
-        writable: true,
-        enumerable: true,
-        configurable: true,
-      });
-    } catch (e) {
-      // If it fails, we log it, but often it works even if getOwnPropertyDescriptor returns null (inherited)
-      if (req[prop] !== undefined) {
-        try {
-          const val = req[prop];
-          req[prop] = val; // Try direct assignment
-        } catch (assignError) {
-          // Final fallback: just try to force it
-          try {
-            Object.defineProperty(req, prop, { value: req[prop], writable: true });
-          } catch (f) {
-             console.warn(`Shim unable to redefine req.${prop}:`, e.message);
-          }
-        }
-      }
-    }
-  });
-  next();
-});
-
-app.use(
-  mongoSanitize({
-    replaceWith: "_",
-  })
-);
-app.use(hpp());
-
-// CORS configuration
+// CORS configuration & middleware
+// This must be placed BEFORE body parsers to ensure that even error responses
+// from the body parser (like 413 Entity Too Large) include CORS headers.
 const corsOptions = {
   // Allow the production frontend by default (Vercel URL). The FRONTEND_URL
   // environment variable can override this for other deployments.
@@ -189,22 +153,17 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization"],
 };
 
-// Note: dynamic CORS middleware will be applied after the allowedOrigins
-// set is created below so it can use the runtime allowlist. The static
-// cors(corsOptions) call is intentionally omitted here.
-// app.use(cors(corsOptions));
-
 // Robust origin echo middleware: read allowed origins from FRONTEND_URLS
-// (comma-separated) or FRONTEND_URL (single). We always include the Vercel
-// frontend origin as a sensible default so deployed frontends can access the
-// API even when the Render environment wasn't updated. Any values in
-// FRONTEND_URLS or FRONTEND_URL will be merged with this default.
+// (comma-separated) or FRONTEND_URL (single).
 const DEFAULT_FRONTEND = "https://medi-trap-frontend.vercel.app";
 // Include common local dev origins only in development.
-const DEV_FRONTENDS =
-  isDevelopment
-    ? ["http://localhost:5173", "http://10.0.2.2:5000", "http://localhost:8081"]
-    : [];
+const DEV_FRONTENDS = [
+  "http://localhost:5173",
+  "http://10.0.2.2:5000",
+  "http://localhost:8081",
+  "http://localhost:19000",
+  "http://localhost:19006",
+];
 const rawFrontends =
   process.env.FRONTEND_URLS || process.env.FRONTEND_URL || DEFAULT_FRONTEND;
 const allowedOrigins = new Set(
@@ -215,10 +174,10 @@ const allowedOrigins = new Set(
       rawFrontends
         .split(",")
         .map((s) => s.trim())
-        .filter(Boolean)
+        .filter(Boolean),
     )
     // Normalize and dedupe
-    .map((s) => s.replace(/\/+$/, ""))
+    .map((s) => s.replace(/\/+$/, "")),
 );
 
 // Dynamic CORS middleware: reflect the incoming Origin when allowed.
@@ -236,54 +195,98 @@ app.use(
             /^https?:\/\/(?:192\.168|10|172\.(1[6-9]|2\d|3[0-1]))(?:\.\d{1,3}){2}(?::\d+)?$/;
           if (localLanRegex.test(origin)) return callback(null, true);
         } catch (e) {
-          // ignore and fallthrough to reject
+          // ignore
         }
       }
-      // Not allowed: do not throw an error (that bubbles to the global error
-      // handler). Instead, respond with success=false so CORS middleware will
-      // not set the CORS headers and the browser will block the request.
       return callback(null, false);
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
-  })
+  }),
 );
 
-// Debug: print allowed origins at startup
-console.log("Allowed CORS origins:", Array.from(allowedOrigins));
-global.__ALLOWED_ORIGINS__ = Array.from(allowedOrigins);
-
+// Manual CORS fallback for edge cases/errors where the 'cors' package logic might be skipped
 app.use((req, res, next) => {
   const origin = req.headers.origin;
-  const noOrigin = !origin;
-  let allowed = noOrigin || !!(origin && allowedOrigins.has(origin));
-  if (!allowed && isDevelopment) {
-    // Mirror the same local LAN allowlist as the CORS handler above
+  let allowed = !origin || allowedOrigins.has(origin);
+  if (!allowed && isDevelopment && origin) {
     try {
       const localLanRegex =
         /^https?:\/\/(?:192\.168|10|172\.(1[6-9]|2\d|3[0-1]))(?:\.\d{1,3}){2}(?::\d+)?$/;
-      if (origin && localLanRegex.test(origin)) allowed = true;
-    } catch (e) {
-      // ignore
-    }
+      if (localLanRegex.test(origin)) allowed = true;
+    } catch (e) {}
   }
-  // Debug logging only in development to avoid leaking request metadata in production logs.
-  if (isDevelopment) {
-    console.log(`CORS: incoming Origin=${origin} allowed=${allowed}`);
-  }
+
   if (allowed && origin) {
     res.setHeader("Access-Control-Allow-Origin", origin);
     res.setHeader("Access-Control-Allow-Credentials", "true");
     res.setHeader(
       "Access-Control-Allow-Methods",
-      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+      "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     );
     res.setHeader("Access-Control-Allow-Headers", "Content-Type,Authorization");
   }
+
   if (req.method === "OPTIONS") return res.sendStatus(204);
   next();
 });
+
+// Debug: print allowed origins at startup
+console.log("Allowed CORS origins:", Array.from(allowedOrigins));
+global.__ALLOWED_ORIGINS__ = Array.from(allowedOrigins);
+
+// Middleware
+app.use(express.json({ limit: "200mb" }));
+app.use(express.urlencoded({ extended: true, limit: "200mb" }));
+// Express 5 Compatibility Shim
+// Express 5 makes req.query/req.params/req.body read-only getters in some contexts.
+// express-mongo-sanitize needs to mutate them, so we make them writable here.
+app.use((req, res, next) => {
+  ["query", "body", "params"].forEach((prop) => {
+    try {
+      // Check if we can already write to it
+      const descriptor = Object.getOwnPropertyDescriptor(req, prop);
+      if (descriptor && descriptor.writable) return;
+
+      const val = req[prop];
+
+      // Attempt to redefine the property on the specific request instance
+      Object.defineProperty(req, prop, {
+        value: val,
+        writable: true,
+        enumerable: true,
+        configurable: true,
+      });
+    } catch (e) {
+      // If it fails, we log it, but often it works even if getOwnPropertyDescriptor returns null (inherited)
+      if (req[prop] !== undefined) {
+        try {
+          const val = req[prop];
+          req[prop] = val; // Try direct assignment
+        } catch (assignError) {
+          // Final fallback: just try to force it
+          try {
+            Object.defineProperty(req, prop, {
+              value: req[prop],
+              writable: true,
+            });
+          } catch (f) {
+            console.warn(`Shim unable to redefine req.${prop}:`, e.message);
+          }
+        }
+      }
+    }
+  });
+  next();
+});
+
+app.use(
+  mongoSanitize({
+    replaceWith: "_",
+  }),
+);
+app.use(hpp());
 
 // Serve uploads only outside production
 if (process.env.NODE_ENV !== "production") {
@@ -336,13 +339,17 @@ if (isDevelopment || process.env.DEBUG_API === "1") {
       const supplied = String(req.headers["x-debug-token"] || "");
       const expected = String(process.env.DEBUG_TOKEN || "");
       if (!expected) {
-        return res.status(403).json({ success: false, message: "Debug token is not configured" });
+        return res
+          .status(403)
+          .json({ success: false, message: "Debug token is not configured" });
       }
       const a = Buffer.from(supplied);
       const b = Buffer.from(expected);
       const isValid = a.length === b.length && crypto.timingSafeEqual(a, b);
       if (!isValid) {
-        return res.status(403).json({ success: false, message: "Invalid debug token" });
+        return res
+          .status(403)
+          .json({ success: false, message: "Invalid debug token" });
       }
 
       // Lazy-require the model so this endpoint can be no-op in production builds
@@ -363,9 +370,39 @@ if (isDevelopment || process.env.DEBUG_API === "1") {
 app.use(handleUploadError);
 
 app.use((error, req, res, next) => {
+  if (error) {
+    const isPayloadTooLarge =
+      error.status === 413 ||
+      error.type === "entity.too.large" ||
+      (typeof error.message === "string" &&
+        error.message.toLowerCase().includes("payload too large"));
+
+    if (isPayloadTooLarge) {
+      const origin = req.headers.origin;
+      if (origin && allowedOrigins.has(origin)) {
+        res.setHeader("Access-Control-Allow-Origin", origin);
+        res.setHeader("Access-Control-Allow-Credentials", "true");
+        res.setHeader(
+          "Access-Control-Allow-Methods",
+          "GET,POST,PUT,PATCH,DELETE,OPTIONS",
+        );
+        res.setHeader(
+          "Access-Control-Allow-Headers",
+          "Content-Type,Authorization",
+        );
+      }
+
+      return res.status(413).json({
+        success: false,
+        message:
+          "Request too large. Reduce payload size or upload smaller files.",
+      });
+    }
+  }
+
   console.error("Global error handler:", error);
 
-  if (error.name === "ValidationError") {
+  if (error && error.name === "ValidationError") {
     return res.status(400).json({
       success: false,
       message: "Validation Error",
@@ -373,7 +410,7 @@ app.use((error, req, res, next) => {
     });
   }
 
-  if (error.name === "MongoError" && error.code === 11000) {
+  if (error && error.name === "MongoError" && error.code === 11000) {
     return res.status(400).json({
       success: false,
       message: "Duplicate field value. This value already exists.",
@@ -405,7 +442,7 @@ const connectDB = async () => {
 
     if (!mongoUri || typeof mongoUri !== "string") {
       throw new Error(
-        "MongoDB connection string not set. Please add MONGO_URI (or MONGODB_URI/DB_URI) to config.env or .env and restart."
+        "MongoDB connection string not set. Please add MONGO_URI (or MONGODB_URI/DB_URI) to config.env or .env and restart.",
       );
     }
 
@@ -414,9 +451,9 @@ const connectDB = async () => {
         process.env.MONGO_URI
           ? "MONGO_URI"
           : process.env.MONGODB_URI
-          ? "MONGODB_URI"
-          : "DB_URI"
-      }`
+            ? "MONGODB_URI"
+            : "DB_URI"
+      }`,
     );
 
     const conn = await mongoose.connect(mongoUri, {
@@ -462,6 +499,3 @@ process.on("uncaughtException", (err) => {
 });
 
 startServer();
-
-
-

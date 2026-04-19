@@ -1,4 +1,4 @@
-﻿const multer = require("multer");
+const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 let fileTypeModulePromise;
@@ -31,7 +31,10 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-    cb(null, `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname).toLowerCase()}`);
+    cb(
+      null,
+      `${file.fieldname}-${uniqueSuffix}${path.extname(file.originalname).toLowerCase()}`,
+    );
   },
 });
 
@@ -48,11 +51,12 @@ const fileFilter = (req, file, cb) => {
   return cb(null, true);
 };
 
+const MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024;
 const upload = multer({
   storage,
   fileFilter,
   limits: {
-    fileSize: 5 * 1024 * 1024,
+    fileSize: MAX_UPLOAD_SIZE_BYTES,
     files: 4,
   },
 });
@@ -104,7 +108,9 @@ const handleUploadError = (error, req, res, next) => {
     if (error.code === "LIMIT_FILE_SIZE") {
       return res.status(400).json({
         success: false,
-        message: "File too large. Maximum size is 5MB.",
+        message: `File too large. Maximum size is ${Math.round(
+          MAX_UPLOAD_SIZE_BYTES / 1024 / 1024,
+        )}MB.`,
       });
     }
     if (error.code === "LIMIT_FILE_COUNT") {

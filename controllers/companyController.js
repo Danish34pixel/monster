@@ -11,7 +11,7 @@ exports.getCompanies = async (req, res) => {
     const totalCompanies = await Company.countDocuments();
     const data = await Company.find()
       .select(
-        "name description active stockists stockistNames createdAt updatedAt",
+        "name description active stockists stockistNames stockistName createdAt updatedAt",
       )
       .sort({ createdAt: -1 })
       .skip((page - 1) * limit)
@@ -111,6 +111,30 @@ exports.createCompany = async (req, res) => {
         ),
       ]),
     );
+
+    // Automatically add the creator if they are a stockist and not already present
+    if (
+      req.user &&
+      req.user.role === "stockist" &&
+      mongoose.Types.ObjectId.isValid(String(req.user._id))
+    ) {
+      const creatorId = String(req.user._id);
+      if (!finalStockistIds.includes(creatorId)) {
+        finalStockistIds.push(creatorId);
+      }
+      const creatorName =
+        typeof req.user.name === "string" && req.user.name.trim()
+          ? req.user.name.trim()
+          : typeof req.user.title === "string" && req.user.title.trim()
+            ? req.user.title.trim()
+            : null;
+      if (
+        creatorName &&
+        !finalStockistNames.some((n) => n.toLowerCase() === creatorName.toLowerCase())
+      ) {
+        finalStockistNames.push(creatorName);
+      }
+    }
 
     const payload = {
       name: name.trim(),
@@ -236,6 +260,7 @@ exports.updateCompany = async (req, res) => {
           ...nameCandidates, // include names that didn't match a doc
         ]),
       );
+      updatePayload.stockistName = updatePayload.stockistNames[0] || "";
     }
 
     const company = await Company.findByIdAndUpdate(id, updatePayload, {
