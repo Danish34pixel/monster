@@ -29,3 +29,7 @@
 [2026-04-19T17:08:43.864Z] Result - Name: azxcvbnm, Stockists: [69de9bc1ec5f2463784537b4], Names: [Amit Marketing]
 [2026-04-19T17:09:00.318Z] Created medicine: werfft (69e50c2b4b70bd0b3a9e076d)
 [2026-04-19T17:09:00.638Z] Medicine 'werfft' linked to 1 stockists
+[2026-04-20T06:47:55.395Z] createCompany req.body: {"name":"Testing divyansh","stockists":["69e5c9c239b16698b7046e09"]}
+[2026-04-20T06:47:55.490Z] Result - Name: Testing divyansh, Stockists: [69e5c9c239b16698b7046e09], Names: [Divyansh ptv]
+[2026-04-20T06:49:00.401Z] Created medicine: Pata nahi (69e5cc5c39b16698b7046ed3)
+[2026-04-20T06:49:00.402Z] Medicine 'Pata nahi' linked to 0 stockists
