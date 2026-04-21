@@ -29,3 +29,11 @@
 [2026-04-19T17:08:43.864Z] Result - Name: azxcvbnm, Stockists: [69de9bc1ec5f2463784537b4], Names: [Amit Marketing]
 [2026-04-19T17:09:00.318Z] Created medicine: werfft (69e50c2b4b70bd0b3a9e076d)
 [2026-04-19T17:09:00.638Z] Medicine 'werfft' linked to 1 stockists
+[2026-04-20T12:36:24.605Z] createCompany req.body: {"name":"ghfjkdsls","stockists":["69e602e931560ccb4c760edf"]}
+[2026-04-20T12:36:24.770Z] Result - Name: ghfjkdsls, Stockists: [69e602e931560ccb4c760edf], Names: [Fab pharma]
+[2026-04-20T12:37:18.091Z] createCompany req.body: {"name":"alzm","stockists":["69e602e931560ccb4c760edf"]}
+[2026-04-20T12:37:18.203Z] Result - Name: alzm, Stockists: [69e602e931560ccb4c760edf], Names: [Fab pharma]
+[2026-04-20T17:01:57.289Z] createCompany req.body: {"name":"kmnnjko","stockists":["69e602e931560ccb4c760edf"]}
+[2026-04-20T17:01:57.378Z] Result - Name: kmnnjko, Stockists: [69e602e931560ccb4c760edf], Names: [Fab pharma]
+[2026-04-20T17:02:15.223Z] Created medicine: n mn (69e65c17ffbd9b8c5e354fe8)
+[2026-04-20T17:02:15.293Z] Medicine 'n mn' linked to 1 stockists

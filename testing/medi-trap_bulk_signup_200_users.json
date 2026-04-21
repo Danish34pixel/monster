@@ -2,7 +2,7 @@
   "info": {
     "name": "Medi-Trap | Bulk Signup Test (200 Unique Users)",
     "_postman_id": "medi-trap-bulk-signup-2025-10-19-unique-200",
-    "description": "Creates 200 random unique medical store users using https://api.medi-trap.com/api/auth/signup",
+    "description": "Creates 200 random unique medical store users using http://localhost:5000/api/auth/signup",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -67,9 +67,10 @@
           ]
         },
         "url": {
-          "raw": "https://api.medi-trap.com/api/auth/signup",
-          "protocol": "https",
-          "host": ["api", "medi-trap", "com"],
+          "raw": "http://localhost:5000/api/auth/signup",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
           "path": ["api", "auth", "signup"]
         }
       }
