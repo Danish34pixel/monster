@@ -159,6 +159,7 @@ const DEFAULT_FRONTEND = "https://medi-trap-frontend.vercel.app";
 // Include common local dev origins only in development.
 const DEV_FRONTENDS = [
   "http://localhost:5173",
+  "http://localhost",
   "http://10.0.2.2:5000",
   "http://localhost:8081",
   "http://localhost:19000",
@@ -469,7 +470,11 @@ const connectDB = async () => {
 };
 
 // Start server
-const PORT = process.env.PORT || 5000;
+// For local testing it's sometimes convenient to call http://localhost/* (no port).
+// Set FORCE_ROOT=1 in your .env and run with elevated privileges to bind to port 80.
+const PORT = Number(
+  process.env.PORT || (process.env.FORCE_ROOT === "1" ? 80 : 5000),
+);
 const HOST = process.env.HOST || "localhost";
 
 const startServer = async () => {

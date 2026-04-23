@@ -58,7 +58,7 @@ function buildStockistPayload(body = {}) {
   const payload = {
     name: body.name,
     contactPerson: body.contactPerson,
-    phone: body.phone,
+    phone: body.phone || body.contactNo || body.contact,
     email: body.email ? String(body.email).toLowerCase().trim() : undefined,
     licenseNumber: body.licenseNumber,
     roleType: body.roleType,
