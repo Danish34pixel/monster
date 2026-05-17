@@ -55,10 +55,13 @@ function extractStockistMedicineNames(stockist = {}) {
 }
 
 function buildStockistPayload(body = {}) {
+  const normalizedPhone =
+    body.phone || body.contactNo || body.contactNumber || body.cntxNumber;
+
   const payload = {
     name: body.name,
     contactPerson: body.contactPerson,
-    phone: body.phone,
+    phone: normalizedPhone,
     email: body.email ? String(body.email).toLowerCase().trim() : undefined,
     licenseNumber: body.licenseNumber,
     roleType: body.roleType,
