@@ -475,7 +475,7 @@ const connectDB = async () => {
 const PORT = Number(
   process.env.PORT || (process.env.FORCE_ROOT === "1" ? 80 : 5000),
 );
-const HOST = process.env.HOST || "localhost";
+const HOST = process.env.HOST || "0.0.0.0";
 
 const startServer = async () => {
   try {
@@ -504,3 +504,4 @@ process.on("uncaughtException", (err) => {
 });
 
 startServer();
+
