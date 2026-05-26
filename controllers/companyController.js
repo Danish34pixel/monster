@@ -36,6 +36,96 @@ exports.getCompanies = async (req, res) => {
 exports.createCompany = async (req, res) => {
   try {
     const { name, description, active, stockists, stockistIds: bodyStockistIds } = req.body;
+    const trimmedName = String(name || "").trim();
+
+    if (!trimmedName) {
+      return res.status(400).json({ success: false, message: "Company name is required" });
+    }
+
+    const normalizeStockistInput = async () => {
+      const combinedIncoming = [
+        ...(Array.isArray(stockists) ? stockists : stockists ? [stockists] : []),
+        ...(Array.isArray(bodyStockistIds) ? bodyStockistIds : bodyStockistIds ? [bodyStockistIds] : []),
+      ];
+
+      const normalizedStockists = combinedIncoming
+        .map((item) => {
+          if (!item) return null;
+          if (typeof item === "object") {
+            const sid = item._id || item.id || item.value;
+            if (sid && mongoose.Types.ObjectId.isValid(String(sid))) return String(sid);
+            const sname = item.name || item.label;
+            if (typeof sname === "string" && sname.trim()) return sname.trim();
+            return null;
+          }
+          if (typeof item === "string") return item.trim();
+          return null;
+        })
+        .filter(Boolean);
+
+      const idCandidates = normalizedStockists.filter((item) =>
+        mongoose.Types.ObjectId.isValid(String(item)),
+      );
+      const rawNameCandidates = normalizedStockists.filter(
+        (item) => !mongoose.Types.ObjectId.isValid(String(item)),
+      );
+
+      const query = [];
+      if (idCandidates.length > 0) query.push({ _id: { $in: idCandidates } });
+      if (rawNameCandidates.length > 0) {
+        query.push({
+          name: {
+            $in: rawNameCandidates.map((n) =>
+              new RegExp(`^${n.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}$`, "i"),
+            ),
+          },
+        });
+      }
+
+      const stockistDocs =
+        query.length > 0
+          ? await Stockist.find({ $or: query }).select("_id name").lean()
+          : [];
+
+      const resolvedIdsFromDocs = stockistDocs.map((s) => String(s._id));
+      const matchedNames = stockistDocs
+        .map((s) => String(s.name).trim())
+        .filter(Boolean);
+
+      const finalStockistIds = Array.from(new Set([...resolvedIdsFromDocs, ...idCandidates]));
+      const finalStockistNames = Array.from(
+        new Set([
+          ...matchedNames,
+          ...rawNameCandidates.filter(
+            (n) => !matchedNames.some((m) => m.toLowerCase() === n.toLowerCase()),
+          ),
+        ]),
+      );
+
+      if (
+        req.user &&
+        req.user.role === "stockist" &&
+        mongoose.Types.ObjectId.isValid(String(req.user._id))
+      ) {
+        const creatorId = String(req.user._id);
+        if (!finalStockistIds.includes(creatorId)) finalStockistIds.push(creatorId);
+
+        const creatorName =
+          typeof req.user.name === "string" && req.user.name.trim()
+            ? req.user.name.trim()
+            : typeof req.user.title === "string" && req.user.title.trim()
+              ? req.user.title.trim()
+              : null;
+        if (
+          creatorName &&
+          !finalStockistNames.some((n) => n.toLowerCase() === creatorName.toLowerCase())
+        ) {
+          finalStockistNames.push(creatorName);
+        }
+      }
+
+      return { finalStockistIds, finalStockistNames };
+    };
 
     // DEBUG: Log incoming request
     try {
@@ -45,119 +135,63 @@ exports.createCompany = async (req, res) => {
       );
     } catch (e) {}
 
-    // Combine stockists and stockistIds to be safe
-    const combinedIncoming = [
-      ...(Array.isArray(stockists) ? stockists : stockists ? [stockists] : []),
-      ...(Array.isArray(bodyStockistIds) ? bodyStockistIds : bodyStockistIds ? [bodyStockistIds] : []),
-    ];
+    const { finalStockistIds, finalStockistNames } = await normalizeStockistInput();
+    const escapedName = trimmedName.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
+    const existingCompany = await Company.findOne({
+      name: new RegExp(`^${escapedName}$`, "i"),
+    });
 
-    const normalizedStockists = combinedIncoming
-      .map((item) => {
-        if (!item) return null;
-        if (typeof item === "object") {
-          const sid = item._id || item.id || item.value;
-          if (sid && mongoose.Types.ObjectId.isValid(String(sid)))
-            return String(sid);
-          const sname = item.name || item.label;
-          if (typeof sname === "string" && sname.trim()) return sname.trim();
-          return null;
-        }
-        if (typeof item === "string") return item.trim();
-        return null;
-      })
-      .filter(Boolean);
+    const mergeAndSaveCompany = async (companyDoc) => {
+      const mergedStockists = Array.from(
+        new Set([...(companyDoc.stockists || []).map(String), ...finalStockistIds]),
+      );
+      const mergedStockistNames = Array.from(
+        new Set([...(companyDoc.stockistNames || []), ...finalStockistNames]),
+      );
 
-    const idCandidates = normalizedStockists.filter((item) =>
-      mongoose.Types.ObjectId.isValid(String(item)),
-    );
-    const rawNameCandidates = normalizedStockists.filter(
-      (item) => !mongoose.Types.ObjectId.isValid(String(item)),
-    );
+      if (description !== undefined) companyDoc.description = description;
+      companyDoc.active = typeof active === "boolean" ? active : companyDoc.active;
+      companyDoc.stockists = mergedStockists;
+      companyDoc.stockistNames = mergedStockistNames;
+      companyDoc.stockistName = mergedStockistNames[0] || companyDoc.stockistName || "";
 
-    const query = [];
-    if (idCandidates.length > 0) {
-      query.push({ _id: { $in: idCandidates } });
-    }
-    if (rawNameCandidates.length > 0) {
-      query.push({
-        name: {
-          $in: rawNameCandidates.map(
-            (n) => new RegExp(`^${n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i"),
-          ),
-        },
+      const saved = await companyDoc.save();
+
+      if (mergedStockists.length > 0) {
+        await Stockist.updateMany(
+          { _id: { $in: mergedStockists } },
+          {
+            $addToSet: {
+              companies: saved._id,
+              companyNames: saved.name,
+            },
+          },
+        );
+      }
+
+      return saved;
+    };
+
+    if (existingCompany) {
+      const updated = await mergeAndSaveCompany(existingCompany);
+      return res.status(200).json({
+        success: true,
+        message: "Company updated with new stockists",
+        data: updated,
       });
     }
 
-    const stockistDocs =
-      query.length > 0
-        ? await Stockist.find({ $or: query }).select("name").lean()
-        : [];
-
-    const resolvedIdsFromDocs = stockistDocs.map((s) => String(s._id));
-    const matchedNames = stockistDocs
-      .map((s) => String(s.name).trim())
-      .filter(Boolean);
-
-    // Final list of IDs: resolved from docs + any original IDs provided
-    const finalStockistIds = Array.from(new Set([...resolvedIdsFromDocs, ...idCandidates]));
-
-    // Final list of names: matched from docs + any raw name candidates that weren't resolved to docs
-    const finalStockistNames = Array.from(
-      new Set([
-        ...matchedNames,
-        ...rawNameCandidates.filter(
-          (n) =>
-            !matchedNames.some((m) => m.toLowerCase() === n.toLowerCase()),
-        ),
-      ]),
-    );
-
-    // Automatically add the creator if they are a stockist and not already present
-    if (
-      req.user &&
-      req.user.role === "stockist" &&
-      mongoose.Types.ObjectId.isValid(String(req.user._id))
-    ) {
-      const creatorId = String(req.user._id);
-      if (!finalStockistIds.includes(creatorId)) {
-        finalStockistIds.push(creatorId);
-      }
-      const creatorName =
-        typeof req.user.name === "string" && req.user.name.trim()
-          ? req.user.name.trim()
-          : typeof req.user.title === "string" && req.user.title.trim()
-            ? req.user.title.trim()
-            : null;
-      if (
-        creatorName &&
-        !finalStockistNames.some((n) => n.toLowerCase() === creatorName.toLowerCase())
-      ) {
-        finalStockistNames.push(creatorName);
-      }
-    }
-
-    const payload = {
-      name: name.trim(),
+    const company = await Company.create({
+      name: trimmedName,
       description: description || "",
       active: typeof active === "boolean" ? active : true,
       stockists: finalStockistIds,
       stockistNames: finalStockistNames,
       stockistName: finalStockistNames[0] || "",
-    };
+    });
 
-    const company = await Company.create(payload);
-
-    // DEBUG: Log creation results
-    try {
-      require("fs").appendFileSync(
-        "db_debug.txt",
-        `[${new Date().toISOString()}] Result - Name: ${company.name}, Stockists: [${company.stockists.join(",")}], Names: [${company.stockistNames.join(",")}]\n`,
-      );
-    } catch (e) {}
-
-    let updateResult = null;
     if (finalStockistIds.length > 0) {
-      updateResult = await Stockist.updateMany(
+      await Stockist.updateMany(
         { _id: { $in: finalStockistIds } },
         {
           $addToSet: {
@@ -171,20 +205,55 @@ exports.createCompany = async (req, res) => {
     return res.status(201).json({
       success: true,
       data: company,
-      updateResult,
     });
   } catch (err) {
     if (err && err.code === 11000) {
-      return res
-        .status(409)
-        .json({ success: false, message: "Company already exists" });
+      try {
+        const { name, description, active, stockists, stockistIds: bodyStockistIds } = req.body;
+        const trimmedName = String(name || "").trim();
+        const escapedName = trimmedName.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&");
+        const existingCompany = await Company.findOne({
+          name: new RegExp(`^${escapedName}$`, "i"),
+        });
+
+        if (existingCompany) {
+          const combinedIncoming = [
+            ...(Array.isArray(stockists) ? stockists : stockists ? [stockists] : []),
+            ...(Array.isArray(bodyStockistIds) ? bodyStockistIds : bodyStockistIds ? [bodyStockistIds] : []),
+          ];
+          const candidateIds = combinedIncoming
+            .map((item) => {
+              if (!item) return null;
+              if (typeof item === "object") return String(item._id || item.id || item.value || "").trim();
+              return String(item).trim();
+            })
+            .filter((v) => v && mongoose.Types.ObjectId.isValid(String(v)));
+
+          existingCompany.stockists = Array.from(
+            new Set([...(existingCompany.stockists || []).map(String), ...candidateIds]),
+          );
+          if (description !== undefined) existingCompany.description = description;
+          existingCompany.active = typeof active === "boolean" ? active : existingCompany.active;
+          existingCompany.stockistNames = Array.from(
+            new Set([...(existingCompany.stockistNames || []), ...candidateIds]),
+          );
+          existingCompany.stockistName = existingCompany.stockistNames[0] || existingCompany.stockistName || "";
+          const saved = await existingCompany.save();
+          return res.status(200).json({
+            success: true,
+            message: "Company updated with new stockists",
+            data: saved,
+          });
+        }
+      } catch (mergeErr) {
+        console.error("Fallback merge after duplicate failed:", mergeErr);
+      }
+      return res.status(409).json({ success: false, message: "Company already exists" });
     }
-    return res
-      .status(500)
-      .json({ success: false, message: "Failed to create company" });
+    console.error("createCompany error:", err);
+    return res.status(500).json({ success: false, message: "Failed to create company" });
   }
 };
-
 exports.updateCompany = async (req, res) => {
   try {
     const { id } = req.params;
@@ -253,14 +322,24 @@ exports.updateCompany = async (req, res) => {
           ? await Stockist.find(query).select("_id name").lean()
           : [];
 
-      updatePayload.stockists = stockistDocs.map((s) => String(s._id));
-      updatePayload.stockistNames = Array.from(
+      const incomingStockistIds = stockistDocs.map((s) => String(s._id));
+      const incomingStockistNames = Array.from(
         new Set([
           ...stockistDocs.map((s) => s.name.trim()),
           ...nameCandidates, // include names that didn't match a doc
         ]),
       );
-      updatePayload.stockistName = updatePayload.stockistNames[0] || "";
+
+      const mergedStockistIds = Array.from(
+        new Set([...(oldCompany.stockists || []).map(String), ...incomingStockistIds]),
+      );
+      const mergedStockistNames = Array.from(
+        new Set([...(oldCompany.stockistNames || []), ...incomingStockistNames]),
+      );
+
+      updatePayload.stockists = mergedStockistIds;
+      updatePayload.stockistNames = mergedStockistNames;
+      updatePayload.stockistName = mergedStockistNames[0] || "";
     }
 
     const company = await Company.findByIdAndUpdate(id, updatePayload, {
@@ -273,9 +352,6 @@ exports.updateCompany = async (req, res) => {
       const newStockistIds = (company.stockists || []).map(String);
 
       const toAdd = newStockistIds.filter((sid) => !oldStockistIds.includes(sid));
-      const toRemove = oldStockistIds.filter(
-        (sid) => !newStockistIds.includes(sid),
-      );
 
       if (toAdd.length > 0) {
         await Stockist.updateMany(
@@ -283,13 +359,8 @@ exports.updateCompany = async (req, res) => {
           { $addToSet: { companies: company._id, companyNames: company.name } },
         );
       }
-      if (toRemove.length > 0) {
-        await Stockist.updateMany(
-          { _id: { $in: toRemove } },
-          { $pull: { companies: company._id, companyNames: company.name } },
-        );
-      }
-      // If the company name changed, update all linked stockists
+
+      // If the company name changed, update all linked stockists without removing any.
       if (oldCompany.name !== company.name) {
         await Stockist.updateMany(
           { companies: company._id },
@@ -307,4 +378,6 @@ exports.updateCompany = async (req, res) => {
       .json({ success: false, message: "Failed to update company" });
   }
 };
+
+
 

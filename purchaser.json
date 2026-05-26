@@ -2,7 +2,7 @@
   "info": {
     "name": "Medi-Trap | Bulk Purchaser Register (100 Users)",
     "_postman_id": "medi-trap-bulk-purchaser-2025-10-22",
-    "description": "Creates 100 random purchaser entries using live register API: https://api.medi-trap.com/api/purchaser/register",
+    "description": "Creates 100 random purchaser entries using live register API: http://localhost:5000/api/purchaser/register",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -59,9 +59,10 @@
           ]
         },
         "url": {
-          "raw": "https://api.medi-trap.com/api/purchaser/register",
-          "protocol": "https",
-          "host": ["api", "medi-trap", "com"],
+          "raw": "http://localhost:5000/api/purchaser/register",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "5000",
           "path": ["api", "purchaser", "register"]
         }
       }

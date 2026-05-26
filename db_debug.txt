@@ -33,3 +33,27 @@
 [2026-04-20T06:47:55.490Z] Result - Name: Testing divyansh, Stockists: [69e5c9c239b16698b7046e09], Names: [Divyansh ptv]
 [2026-04-20T06:49:00.401Z] Created medicine: Pata nahi (69e5cc5c39b16698b7046ed3)
 [2026-04-20T06:49:00.402Z] Medicine 'Pata nahi' linked to 0 stockists
+[2026-04-20T12:36:24.605Z] createCompany req.body: {"name":"ghfjkdsls","stockists":["69e602e931560ccb4c760edf"]}
+[2026-04-20T12:36:24.770Z] Result - Name: ghfjkdsls, Stockists: [69e602e931560ccb4c760edf], Names: [Fab pharma]
+[2026-04-20T12:37:18.091Z] createCompany req.body: {"name":"alzm","stockists":["69e602e931560ccb4c760edf"]}
+[2026-04-20T12:37:18.203Z] Result - Name: alzm, Stockists: [69e602e931560ccb4c760edf], Names: [Fab pharma]
+[2026-04-20T17:01:57.289Z] createCompany req.body: {"name":"kmnnjko","stockists":["69e602e931560ccb4c760edf"]}
+[2026-04-20T17:01:57.378Z] Result - Name: kmnnjko, Stockists: [69e602e931560ccb4c760edf], Names: [Fab pharma]
+[2026-04-20T17:02:15.223Z] Created medicine: n mn (69e65c17ffbd9b8c5e354fe8)
+[2026-04-20T17:02:15.293Z] Medicine 'n mn' linked to 1 stockists
+[2026-05-26T10:47:48.794Z] createCompany req.body: {"name":"okland","stockists":["6a0754dbc0f4c40459e2b62d"]}
+[2026-05-26T10:47:49.007Z] Result - Name: okland, Stockists: [6a0754dbc0f4c40459e2b62d], Names: [Rohit pharma]
+[2026-05-26T10:49:37.098Z] createCompany req.body: {"name":"domena","stockists":["6a09ebc0c61ed4e603fe155e"]}
+[2026-05-26T10:49:37.256Z] Result - Name: domena, Stockists: [6a09ebc0c61ed4e603fe155e], Names: [Johar pharma]
+[2026-05-26T10:50:27.598Z] createCompany req.body: {"name":"column","stockists":["6a09ebc0c61ed4e603fe155e"]}
+[2026-05-26T10:50:27.777Z] Result - Name: column, Stockists: [6a09ebc0c61ed4e603fe155e], Names: [Johar pharma]
+[2026-05-26T10:57:18.042Z] createCompany req.body: {"name":"kmnqw","stockists":["6a09ebc0c61ed4e603fe155e","6a09edc33025079fabe2113d","6a09e78b5cd5a164ee4b0d30"]}
+[2026-05-26T10:57:18.259Z] Result - Name: kmnqw, Stockists: [6a09e78b5cd5a164ee4b0d30,6a09ebc0c61ed4e603fe155e,6a09edc33025079fabe2113d], Names: [Divyansh,Johar pharma,Virat pharma]
+[2026-05-26T10:58:07.912Z] createCompany req.body: {"name":"Akay kohli","stockists":["6a09ebc0c61ed4e603fe155e","69f66063c0f4c40459e2b41c"]}
+[2026-05-26T11:01:25.454Z] createCompany req.body: {"name":"Akay kohli","stockists":["6a09ebc0c61ed4e603fe155e","69f66063c0f4c40459e2b41c"]}
+[2026-05-26T11:02:28.682Z] createCompany req.body: {"name":"okland","stockists":["6a09edc33025079fabe2113d","6a09ebc0c61ed4e603fe155e","69f8aa74c0f4c40459e2b48d"]}
+[2026-05-26T11:05:20.624Z] createCompany req.body: {"name":"okland","stockists":["69ff73d4c0f4c40459e2b5c2"]}
+[2026-05-26T11:09:34.810Z] Created medicine: robinz (6a157f6e0a6a755e4a8116dc)
+[2026-05-26T11:09:35.016Z] Medicine 'robinz' linked to 2 stockists
+[2026-05-26T11:22:14.043Z] Created medicine: form (6a1582650a6a755e4a811728)
+[2026-05-26T11:22:14.137Z] Medicine 'form' linked to 1 stockists
