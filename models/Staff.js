@@ -12,11 +12,11 @@ const StaffSchema = new mongoose.Schema(
     imagePublicId: { type: String, trim: true },
     aadharPublicId: { type: String, trim: true },
     password: { type: String }, // For staff login
-    approved: { type: Boolean, default: false }, // Kept for backward compatibility
+    approved: { type: Boolean, default: true },
     approvalStatus: {
       type: String,
       enum: ["pending", "approved", "declined"],
-      default: "pending",
+      default: "approved",
     },
     workForType: {
       type: String,
@@ -25,7 +25,7 @@ const StaffSchema = new mongoose.Schema(
     },
     workForId: { type: mongoose.Schema.Types.ObjectId },
     workForName: { type: String, trim: true, required: true },
-    approvedAt: { type: Date },
+    approvedAt: { type: Date, default: Date.now },
     approvedBy: { type: mongoose.Schema.Types.ObjectId },
     declinedAt: { type: Date },
     declinedBy: { type: mongoose.Schema.Types.ObjectId },
@@ -36,12 +36,18 @@ const StaffSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+StaffSchema.pre("save", function (next) {
+  this.approved = true;
+  this.approvalStatus = "approved";
+  if (!this.approvedAt) this.approvedAt = new Date();
+  next();
+});
+
 StaffSchema.set("toJSON", {
   transform: function (doc, ret) {
-    delete ret.aadharCard;       
-    delete ret.address;          
-    delete ret.imagePublicId;     
-    delete ret.aadharPublicId;    
+    delete ret.aadharCard;
+    delete ret.imagePublicId;
+    delete ret.aadharPublicId;
     delete ret.password;
     return ret;
   },

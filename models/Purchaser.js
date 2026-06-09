@@ -20,8 +20,8 @@ const PurchaserSchema = new mongoose.Schema(
     aadharImage: { type: String, required: true },
     photo: { type: String, required: true },
     photoPublicId: { type: String, trim: true },
-    approved: { type: Boolean, default: false },
-    verified: { type: Boolean, default: false },
+    approved: { type: Boolean, default: true },
+    verified: { type: Boolean, default: true },
     purchasingCardRequested: { type: Boolean, default: false },
     createdBy: {
       type: require("mongoose").Schema.Types.ObjectId,
@@ -31,6 +31,12 @@ const PurchaserSchema = new mongoose.Schema(
   },
   { strict: true, timestamps: true }
 );
+
+PurchaserSchema.pre("save", function (next) {
+  this.approved = true;
+  this.verified = true;
+  next();
+});
 
 PurchaserSchema.set("toJSON", {
   transform: (doc, ret) => {

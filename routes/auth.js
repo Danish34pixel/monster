@@ -209,6 +209,10 @@ router.post(
         drugLicenseNo,
         drugLicenseImage: drugLicenseImageUrl,
         password: hashedPassword,
+        approved: true,
+        isVerified: true,
+        declined: false,
+        approvedAt: new Date(),
       });
 
       return res.status(201).json({
@@ -316,8 +320,9 @@ router.post(
         aadharCard: aadharRes.url,
         imagePublicId: imgRes.public_id,
         aadharPublicId: aadharRes.public_id,
-        approved: false,
-        approvalStatus: "pending",
+        approved: true,
+        approvalStatus: "approved",
+        approvedAt: new Date(),
         ...workplace,
       });
 
@@ -367,29 +372,51 @@ router.post(
       }
 
       if (account.role === "stockist") {
-        if (user.status !== "approved") {
-          return res.status(403).json({
-            success: false,
-            message:
-              user.status === "declined"
-                ? "Your registration was declined by admin."
-                : "Your account is under review. Please wait for admin approval.",
+        if (!user.approved || user.status !== "approved") {
+          await Stockist.findByIdAndUpdate(user._id, {
+            approved: true,
+            status: "approved",
+            declined: false,
+            approvedAt: user.approvedAt || new Date(),
+            approvedBy: user.approvedBy || "system",
           });
+          user.approved = true;
+          user.status = "approved";
+          user.declined = false;
+        }
+      }
+
+      if (account.role === "purchaser") {
+        if (!user.approved || !user.verified) {
+          await Purchaser.findByIdAndUpdate(user._id, { approved: true, verified: true });
+          user.approved = true;
+          user.verified = true;
         }
       }
 
       if (account.role === "staff") {
-        const status =
-          user.approvalStatus || (user.approved ? "approved" : "pending");
-        if (status !== "approved") {
-          return res.status(403).json({
-            success: false,
-            message:
-              status === "declined"
-                ? "Your staff request was declined by the selected organization."
-                : "Your staff account is pending approval from your organization.",
-            status,
+        if (!user.approved || user.approvalStatus !== "approved") {
+          await Staff.findByIdAndUpdate(user._id, {
+            approved: true,
+            approvalStatus: "approved",
+            approvedAt: user.approvedAt || new Date(),
           });
+          user.approved = true;
+          user.approvalStatus = "approved";
+        }
+      }
+
+      if (account.role === "user" || account.role === "admin") {
+        if (!user.approved || !user.isVerified) {
+          await User.findByIdAndUpdate(user._id, {
+            approved: true,
+            isVerified: true,
+            declined: false,
+            approvedAt: user.approvedAt || new Date(),
+          });
+          user.approved = true;
+          user.isVerified = true;
+          user.declined = false;
         }
       }
 
@@ -651,8 +678,8 @@ router.post(
         password: hashedPassword,
         aadharImage: aadharUpload.url,
         photo: photoUpload.url,
-        approved: false,
-        verified: false,
+        approved: true,
+        verified: true,
       });
 
       const tokenPayload = buildTokenPayload(purchaser, "purchaser");

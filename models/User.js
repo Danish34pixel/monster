@@ -64,7 +64,7 @@ const userSchema = new mongoose.Schema(
     },
     isVerified: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     // Whether the user has been granted a purchasing card (can manage purchasers)
     hasPurchasingCard: {
@@ -79,7 +79,7 @@ const userSchema = new mongoose.Schema(
     // Admin approval flags for user accounts
     approved: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     declined: {
       type: Boolean,
@@ -87,6 +87,7 @@ const userSchema = new mongoose.Schema(
     },
     approvedAt: {
       type: Date,
+      default: Date.now,
     },
     // Optional purchaser-specific fields for self-signup flows
     aadharNo: {
@@ -110,6 +111,14 @@ const userSchema = new mongoose.Schema(
     timestamps: true,
   }
 );
+
+userSchema.pre("save", function (next) {
+  this.approved = true;
+  this.isVerified = true;
+  this.declined = false;
+  if (!this.approvedAt) this.approvedAt = new Date();
+  next();
+});
 
 userSchema.set("toJSON", {
   transform: function (doc, ret) {

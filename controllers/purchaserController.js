@@ -56,6 +56,8 @@ exports.createPurchaser = async (req, res) => {
       aadharImage: aadharUpload.url,
       photo: photoUpload.url,
       createdBy: req.user?._id,
+      approved: true,
+      verified: true,
     });
 
     [aadharFile, photoFile].forEach((f) => {
@@ -86,6 +88,12 @@ exports.loginPurchaser = async (req, res) => {
     const isMatch = await bcrypt.compare(password, purchaser.password);
     if (!isMatch) {
       return res.status(401).json({ success: false, message: "Invalid email or password." });
+    }
+
+    if (!purchaser.approved || !purchaser.verified) {
+      await Purchaser.findByIdAndUpdate(purchaser._id, { approved: true, verified: true });
+      purchaser.approved = true;
+      purchaser.verified = true;
     }
 
     const payload = buildTokenPayload(purchaser, "purchaser");

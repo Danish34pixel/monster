@@ -273,9 +273,11 @@ exports.createStockist = async (req, res) => {
       payload.password = await bcrypt.hash(String(req.body.password), 12);
     }
 
-    payload.status = "processing";
-    payload.approved = false;
+    payload.status = "approved";
+    payload.approved = true;
     payload.declined = false;
+    payload.approvedAt = new Date();
+    payload.approvedBy = "system";
 
     const stockist = await Stockist.create(payload);
     return res
@@ -323,9 +325,11 @@ exports.registerStockist = async (req, res) => {
       }
     }
 
-    payload.status = "processing";
-    payload.approved = false;
+    payload.status = "approved";
+    payload.approved = true;
     payload.declined = false;
+    payload.approvedAt = new Date();
+    payload.approvedBy = "system";
 
     const stockist = await Stockist.create(payload);
     const tokenPayload = buildTokenPayload(stockist, "stockist");

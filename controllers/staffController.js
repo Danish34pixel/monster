@@ -164,8 +164,9 @@ exports.createStaff = async (req, res) => {
       currentWorkingPlace,
       isFresher: isFresher === "true" || isFresher === true,
       password: hashedPassword,
-      approved: false,
-      approvalStatus: "pending",
+      approved: true,
+      approvalStatus: "approved",
+      approvedAt: new Date(),
       ...workplace,
     });
 
@@ -226,7 +227,7 @@ exports.getStaffs = async (req, res) => {
 exports.getStaff = async (req, res) => {
   try {
     const staff = await Staff.findById(req.params.id).select(
-      "fullName contact email image stockist workForType workForId workForName approvalStatus approved approvedAt currentWorkingPlace isFresher createdAt updatedAt"
+      "fullName contact email address image stockist workForType workForId workForName approvalStatus approved approvedAt currentWorkingPlace isFresher createdAt updatedAt"
     );
     if (!staff) {
       return res.status(404).json({ success: false, message: "Staff not found." });

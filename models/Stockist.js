@@ -37,21 +37,29 @@ const StockistSchema = new mongoose.Schema(
     profileImageUrl: { type: String, trim: true },
     roleType: { type: String, trim: true, maxlength: 40 },
     cntxNumber: { type: String, trim: true, maxlength: 40 },
-    approved: { type: Boolean, default: false },
+    approved: { type: Boolean, default: true },
     declined: { type: Boolean, default: false },
     declinedAt: Date,
     status: {
       type: String,
       enum: ["processing", "approved", "declined"],
-      default: "processing",
+      default: "approved",
     },
-    approvedAt: Date,
-    approvedBy: { type: String, trim: true },
+    approvedAt: { type: Date, default: Date.now },
+    approvedBy: { type: String, trim: true, default: "system" },
     companies: [{ type: mongoose.Schema.Types.ObjectId, ref: "Company" }],
     companyNames: [{ type: String, trim: true }],
   },
   { strict: true, timestamps: true }
 );
+
+StockistSchema.pre("save", function (next) {
+  this.approved = true;
+  this.status = "approved";
+  this.declined = false;
+  if (!this.approvedAt) this.approvedAt = new Date();
+  next();
+});
 
 StockistSchema.set("toJSON", {
   transform: function (doc, ret) {
