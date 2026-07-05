@@ -101,6 +101,8 @@ const migrationRoutes = tryRequireRoute("migration");
 const purchasingCardRoutes = require("./routes/purchasingCard");
 const demandRoutes = require("./routes/demand");
 const urgentRequestRoutes = require("./routes/urgentRequest");
+const adsRoutes = require("./routes/ads");
+const announcementsRoutes = require("./routes/announcements");
 
 // Import middleware
 const { handleUploadError } = require("./middleware/upload");
@@ -133,7 +135,9 @@ app.use(
 app.use(
   rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: Number(process.env.GLOBAL_RATE_LIMIT_MAX || 300),
+    // 2000 per 15 min per IP — allows normal polling (5s interval = 180/15min)
+    // plus admin panel reads without hitting the ceiling.
+    max: Number(process.env.GLOBAL_RATE_LIMIT_MAX || 2000),
     standardHeaders: true,
     legacyHeaders: false,
   }),
@@ -289,10 +293,8 @@ app.use(
 );
 app.use(hpp());
 
-// Serve uploads only outside production
-if (process.env.NODE_ENV !== "production") {
-  app.use("/uploads", express.static(path.join(__dirname, "uploads")));
-}
+// Serve uploads in all environments (required for ad media)
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // Request logging middleware
 app.use((req, res, next) => {
@@ -320,6 +322,10 @@ app.use("/api/purchasing-card", purchasingCardRoutes);
 app.use("/api/demand", demandRoutes);
 // Mount urgent request routes
 app.use("/api/urgent-request", urgentRequestRoutes);
+// Mount ads routes
+app.use("/api/ads", adsRoutes);
+// Mount announcements routes
+app.use("/api/announcements", announcementsRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {
