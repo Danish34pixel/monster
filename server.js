@@ -100,6 +100,7 @@ const userRoutes = tryRequireRoute("user");
 const migrationRoutes = tryRequireRoute("migration");
 const purchasingCardRoutes = require("./routes/purchasingCard");
 const demandRoutes = require("./routes/demand");
+const urgentRequestRoutes = require("./routes/urgentRequest");
 
 // Import middleware
 const { handleUploadError } = require("./middleware/upload");
@@ -184,19 +185,19 @@ const allowedOrigins = new Set(
 app.use(
   cors({
     origin: (origin, callback) => {
+      // In development, allow all origins for convenience (local dev only)
+      if (isDevelopment) return callback(null, true);
       // Allow non-browser requests (curl, server-to-server) with no Origin
       if (!origin) return callback(null, true);
       if (allowedOrigins.has(origin)) return callback(null, true);
       // During development, allow common local-LAN origins (phone testing)
-      if (isDevelopment) {
-        try {
-          // Accept origins like http://192.168.x.y(:port) or http://10.x.x.x(:port)
-          const localLanRegex =
-            /^https?:\/\/(?:192\.168|10|172\.(1[6-9]|2\d|3[0-1]))(?:\.\d{1,3}){2}(?::\d+)?$/;
-          if (localLanRegex.test(origin)) return callback(null, true);
-        } catch (e) {
-          // ignore
-        }
+      try {
+        // Accept origins like http://192.168.x.y(:port) or http://10.x.x.x(:port)
+        const localLanRegex =
+          /^https?:\/\/(?:192\.168|10|172\.(1[6-9]|2\d|3[0-1]))(?:\.\d{1,3}){2}(?::\d+)?$/;
+        if (isDevelopment && localLanRegex.test(origin)) return callback(null, true);
+      } catch (e) {
+        // ignore
       }
       return callback(null, false);
     },
@@ -317,6 +318,8 @@ app.use("/api/migration", migrationRoutes);
 app.use("/api/purchasing-card", purchasingCardRoutes);
 // Mount demand routes
 app.use("/api/demand", demandRoutes);
+// Mount urgent request routes
+app.use("/api/urgent-request", urgentRequestRoutes);
 
 // Health check endpoint
 app.get("/health", (req, res) => {

@@ -30,8 +30,19 @@ const refreshLimiter = rateLimit({
   handler: jsonRateLimitHandler("Too many token refresh attempts. Please try again later."),
 });
 
+// Prevent rapid-fire accept hammering; 10 attempts per minute per IP is
+// generous for legitimate one-tap use but blocks script loops.
+const acceptLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  limit: Number(process.env.ACCEPT_RATE_LIMIT_MAX || 10),
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonRateLimitHandler("Too many accept attempts. Please slow down."),
+});
+
 module.exports = {
   authLimiter,
   passwordResetLimiter,
   refreshLimiter,
+  acceptLimiter,
 };
