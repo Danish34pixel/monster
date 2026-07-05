@@ -149,8 +149,35 @@ const cleanupUploads = (req, res, next) => {
   return next();
 };
 
+// ── Ad upload (images + video, 50 MB) ────────────────────────────────────────
+
+const AD_ALLOWED_MIME = new Set([
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "video/mp4",
+  "video/quicktime",
+]);
+
+const AD_ALLOWED_EXT = new Set([".jpg", ".jpeg", ".png", ".webp", ".mp4", ".mov"]);
+const AD_MAX_SIZE_BYTES = 50 * 1024 * 1024;
+
+const adFileFilter = (req, file, cb) => {
+  const ext = path.extname(file.originalname || "").toLowerCase();
+  if (!AD_ALLOWED_EXT.has(ext)) return cb(new Error("Unsupported file extension."), false);
+  if (!AD_ALLOWED_MIME.has(file.mimetype)) return cb(new Error("Unsupported file type."), false);
+  return cb(null, true);
+};
+
+const adUpload = multer({
+  storage,
+  fileFilter: adFileFilter,
+  limits: { fileSize: AD_MAX_SIZE_BYTES, files: 1 },
+});
+
 module.exports = {
   upload,
+  adUpload,
   validateUploadedFiles,
   handleUploadError,
   cleanupUploads,

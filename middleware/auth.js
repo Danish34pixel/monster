@@ -51,6 +51,7 @@ const authenticate = async (req, res, next) => {
   try {
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
+      console.warn(`[auth] 401 NO TOKEN — ${req.method} ${req.path}`);
       return res.status(401).json({
         success: false,
         message: "Access denied. No token provided.",
@@ -58,7 +59,13 @@ const authenticate = async (req, res, next) => {
     }
 
     const token = authHeader.slice(7);
-    const decoded = verifyAccessToken(token);
+    let decoded;
+    try {
+      decoded = verifyAccessToken(token);
+    } catch (verifyErr) {
+      console.warn(`[auth] 401 VERIFY FAIL — ${req.method} ${req.path} — ${verifyErr.name}: ${verifyErr.message} — token prefix: ${token.slice(0, 20)}...`);
+      throw verifyErr;
+    }
     const user = await resolveUserFromToken(decoded);
 
     if (!user) {
