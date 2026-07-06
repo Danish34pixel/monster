@@ -7,10 +7,11 @@ const { authenticate, isAdmin } = require("../middleware/auth");
 router.get("/", authenticate, async (req, res) => {
   try {
     const role = req.user.role;
-    const announcements = await Announcement.find({
-      isActive: true,
-      targetRoles: { $in: [role] },
-    })
+    const filter = { isActive: true };
+    if (role !== "admin") {
+      filter.targetRoles = { $in: [role] };
+    }
+    const announcements = await Announcement.find(filter)
       .sort({ createdAt: -1 })
       .limit(50)
       .lean();
