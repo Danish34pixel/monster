@@ -3,11 +3,83 @@ const router = express.Router();
 const path = require("path");
 const Ad = require("../models/Ad");
 const Stockist = require("../models/Stockist");
-const { authenticate, isAdmin } = require("../middleware/auth");
+const {
+  authenticate,
+  optionalAuthenticate,
+  isAdmin,
+} = require("../middleware/auth");
 const { adUpload, handleUploadError } = require("../middleware/upload");
 
-// GET /api/ads/active — all authenticated users: active non-expired ads
-router.get("/active", authenticate, async (req, res) => {
+const getPublicBaseUrl = (req) => {
+  const configured = String(process.env.BACKEND_URL || "").trim().replace(/\/+$/, "");
+  const isLocalHost = (value) =>
+    /^https?:\/\/(?:localhost|127\.0\.0\.1|::1)(?::\d+)?(?:\/|$)/i.test(value) ||
+    /^(?:localhost|127\.0\.0\.1|::1)(?::\d+)?(?:\/|$)/i.test(value);
+
+  if (configured && !isLocalHost(configured)) {
+    if (/^https?:\/\//i.test(configured)) return configured;
+    return `https://${configured}`;
+  }
+
+  const host = req.get("host");
+  if (!host) return "";
+  return `${req.protocol}://${host}`;
+};
+
+const normalizeStoredMediaPath = (mediaUrl) => {
+  if (!mediaUrl) return mediaUrl;
+
+  const raw = String(mediaUrl).trim();
+  const pathname = (() => {
+    try {
+      return new URL(raw, "http://local.invalid").pathname;
+    } catch {
+      return raw;
+    }
+  })();
+
+  const clean = pathname.split("?")[0].split("#")[0];
+  if (clean.startsWith("/uploads/")) return clean;
+  if (clean.startsWith("uploads/")) return `/${clean}`;
+
+  const filename = path.posix.basename(clean);
+  return filename ? `/uploads/${filename}` : clean;
+};
+
+const toAbsoluteMediaUrl = (req, mediaUrl) => {
+  if (!mediaUrl) return mediaUrl;
+  const isLocalHost = (value) =>
+    /^https?:\/\/(?:localhost|127\.0\.0\.1|::1)(?::\d+)?(?:\/|$)/i.test(value);
+
+  if (/^https?:\/\//i.test(mediaUrl)) {
+    if (!isLocalHost(mediaUrl)) {
+      return mediaUrl;
+    }
+
+    const base = getPublicBaseUrl(req);
+    if (!base) return mediaUrl;
+
+    try {
+      const parsed = new URL(mediaUrl);
+      return `${base}${parsed.pathname}${parsed.search}${parsed.hash}`;
+    } catch {
+      return mediaUrl;
+    }
+  }
+
+  const base = getPublicBaseUrl(req);
+  if (!base) return mediaUrl;
+  return `${base}${normalizeStoredMediaPath(mediaUrl)}`;
+};
+
+const mapAdMediaUrls = (req, ad) => ({
+  ...ad,
+  mediaUrl: toAbsoluteMediaUrl(req, ad?.mediaUrl),
+});
+
+// GET /api/ads/active — public feed for the app; auth is optional so deployed
+// pages can still show ads even before a user logs in.
+router.get("/active", optionalAuthenticate, async (req, res) => {
   try {
     const now = new Date();
     const ads = await Ad.find({
@@ -17,7 +89,7 @@ router.get("/active", authenticate, async (req, res) => {
       .sort({ createdAt: -1 })
       .limit(20)
       .lean();
-    return res.json({ success: true, data: ads });
+    return res.json({ success: true, data: ads.map((ad) => mapAdMediaUrls(req, ad)) });
   } catch (err) {
     console.error("Ads active error:", err);
     return res.status(500).json({ success: false, message: "Failed to fetch ads." });
@@ -28,7 +100,7 @@ router.get("/active", authenticate, async (req, res) => {
 router.get("/", authenticate, isAdmin, async (req, res) => {
   try {
     const ads = await Ad.find().sort({ createdAt: -1 }).lean();
-    return res.json({ success: true, data: ads });
+    return res.json({ success: true, data: ads.map((ad) => mapAdMediaUrls(req, ad)) });
   } catch (err) {
     console.error("Ads list error:", err);
     return res.status(500).json({ success: false, message: "Failed to fetch ads." });
@@ -76,7 +148,7 @@ router.post(
         expiresAt: expiresAt ? new Date(expiresAt) : null,
         createdBy: req.user._id,
       });
-      return res.status(201).json({ success: true, data: ad });
+      return res.status(201).json({ success: true, data: mapAdMediaUrls(req, ad.toObject()) });
     } catch (err) {
       console.error("Ads create error:", err);
       return res.status(500).json({ success: false, message: "Failed to create ad." });
@@ -84,8 +156,9 @@ router.post(
   }
 );
 
-// POST /api/ads/:id/click — any authenticated user: record a click
-router.post("/:id/click", authenticate, async (req, res) => {
+// POST /api/ads/:id/click — record a click if the request is authenticated,
+// but allow anonymous clients to avoid dropping analytics on public pages.
+router.post("/:id/click", optionalAuthenticate, async (req, res) => {
   try {
     await Ad.findByIdAndUpdate(req.params.id, { $inc: { clickCount: 1 } });
     return res.json({ success: true });
@@ -94,8 +167,8 @@ router.post("/:id/click", authenticate, async (req, res) => {
   }
 });
 
-// POST /api/ads/:id/impression — any authenticated user: record impression
-router.post("/:id/impression", authenticate, async (req, res) => {
+// POST /api/ads/:id/impression — allow anonymous impressions for public pages.
+router.post("/:id/impression", optionalAuthenticate, async (req, res) => {
   try {
     await Ad.findByIdAndUpdate(req.params.id, { $inc: { impressionCount: 1 } });
     return res.json({ success: true });
@@ -114,7 +187,7 @@ router.patch("/:id", authenticate, isAdmin, async (req, res) => {
     if (expiresAt !== undefined) update.expiresAt = expiresAt ? new Date(expiresAt) : null;
     const ad = await Ad.findByIdAndUpdate(req.params.id, { $set: update }, { new: true });
     if (!ad) return res.status(404).json({ success: false, message: "Ad not found." });
-    return res.json({ success: true, data: ad });
+    return res.json({ success: true, data: mapAdMediaUrls(req, ad.toObject()) });
   } catch (err) {
     return res.status(500).json({ success: false, message: "Failed to update ad." });
   }
