@@ -22,6 +22,33 @@ router.get("/", authenticate, async (req, res) => {
   }
 });
 
+// GET /api/announcements/:id — fetch a single announcement if visible to the user
+router.get("/:id", authenticate, async (req, res) => {
+  try {
+    const announcement = await Announcement.findById(req.params.id).lean();
+    if (!announcement) {
+      return res.status(404).json({ success: false, message: "Announcement not found." });
+    }
+
+    if (req.user.role !== "admin") {
+      const targetRoles = Array.isArray(announcement.targetRoles)
+        ? announcement.targetRoles
+        : [];
+      if (!announcement.isActive || !targetRoles.includes(req.user.role)) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied.",
+        });
+      }
+    }
+
+    return res.json({ success: true, data: announcement });
+  } catch (err) {
+    console.error("Announcement detail error:", err);
+    return res.status(500).json({ success: false, message: "Failed to fetch announcement." });
+  }
+});
+
 // GET /api/announcements/all — admin: all announcements
 router.get("/all", authenticate, isAdmin, async (req, res) => {
   try {
