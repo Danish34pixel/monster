@@ -12,6 +12,8 @@ const UrgentRequestMessageSchema = new mongoose.Schema(
     senderId: { type: mongoose.Schema.Types.ObjectId, required: true },
     senderName: { type: String, trim: true },
     text: { type: String, required: true, trim: true, maxlength: 1000 },
+    deliveredAt: { type: Date, default: null },
+    readBy: { type: [{ type: mongoose.Schema.Types.ObjectId }], default: [] },
   },
   { timestamps: true }
 );

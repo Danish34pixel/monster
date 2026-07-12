@@ -371,6 +371,40 @@ router.get("/:id/messages", authenticate, async (req, res) => {
     if (!isOwner && !isAcceptor) {
       return res.status(403).json({ success: false, message: "Access denied." });
     }
+
+    const viewerId = uid(req.user);
+    const markRead = String(req.query.markRead || "") === "1";
+    const recipientId = isOwner
+      ? request.acceptedBy
+      : request.createdBy;
+    const otherSenderRole = isOwner ? "purchaser" : "user";
+
+    if (markRead && recipientId) {
+      await UrgentRequestMessage.updateMany(
+        {
+          requestId: req.params.id,
+          senderRole: otherSenderRole,
+          senderId: { $ne: viewerId },
+        },
+        {
+          $set: { deliveredAt: new Date() },
+          $addToSet: { readBy: viewerId },
+        }
+      );
+    } else if (recipientId) {
+      await UrgentRequestMessage.updateMany(
+        {
+          requestId: req.params.id,
+          senderRole: otherSenderRole,
+          senderId: { $ne: viewerId },
+          deliveredAt: null,
+        },
+        {
+          $set: { deliveredAt: new Date() },
+        }
+      );
+    }
+
     const messages = await UrgentRequestMessage.find({ requestId: req.params.id })
       .sort({ createdAt: 1 })
       .lean();
@@ -413,6 +447,7 @@ router.post("/:id/messages", authenticate, async (req, res) => {
       senderId: uid(req.user),
       senderName,
       text: String(text).trim(),
+      deliveredAt: new Date(),
     });
     return res.status(201).json({ success: true, data: msg });
   } catch (err) {
