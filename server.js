@@ -3,6 +3,8 @@
 const dotenv = require("dotenv");
 const fs = require("fs");
 const path = require("path");
+const http = require("http");
+const https = require("https");
 
 const envCandidates = [
   path.join(__dirname, "config.env"),
@@ -40,6 +42,39 @@ const rateLimit = require("express-rate-limit");
 const mongoSanitize = require("express-mongo-sanitize");
 const hpp = require("hpp");
 const crypto = require("crypto");
+
+const useLocalHttps =
+  String(
+    process.env.USE_HTTPS || process.env.HTTPS || "false",
+  ).toLowerCase() === "true";
+const sslKeyPath = String(
+  process.env.SSL_KEY_PATH || process.env.SSL_KEY || "",
+).trim();
+const sslCertPath = String(
+  process.env.SSL_CERT_PATH || process.env.SSL_CERT || "",
+).trim();
+const sslCaPath = String(
+  process.env.SSL_CA_PATH || process.env.SSL_CA || "",
+).trim();
+
+const loadSslCredentials = () => {
+  if (!sslKeyPath || !sslCertPath) return null;
+  try {
+    const credentials = {
+      key: fs.readFileSync(path.resolve(sslKeyPath), "utf8"),
+      cert: fs.readFileSync(path.resolve(sslCertPath), "utf8"),
+    };
+    if (sslCaPath) {
+      credentials.ca = fs.readFileSync(path.resolve(sslCaPath), "utf8");
+    }
+    return credentials;
+  } catch (err) {
+    console.warn("Unable to load SSL credentials for HTTPS:", err.message);
+    return null;
+  }
+};
+
+const sslCredentials = loadSslCredentials();
 
 // Import routes (case-robust): try multiple casings and fall back to a stub router
 
@@ -169,6 +204,11 @@ const DEV_FRONTENDS = [
   "http://localhost:8081",
   "http://localhost:19000",
   "http://localhost:19006",
+  "https://localhost:5173",
+  "https://localhost:5002",
+  "https://localhost:8081",
+  "https://localhost:19000",
+  "https://localhost:19006",
 ];
 const rawFrontends =
   process.env.FRONTEND_URLS || process.env.FRONTEND_URL || DEFAULT_FRONTEND;
@@ -200,7 +240,8 @@ app.use(
         // Accept origins like http://192.168.x.y(:port) or http://10.x.x.x(:port)
         const localLanRegex =
           /^https?:\/\/(?:192\.168|10|172\.(1[6-9]|2\d|3[0-1]))(?:\.\d{1,3}){2}(?::\d+)?$/;
-        if (isDevelopment && localLanRegex.test(origin)) return callback(null, true);
+        if (isDevelopment && localLanRegex.test(origin))
+          return callback(null, true);
       } catch (e) {
         // ignore
       }
@@ -300,6 +341,17 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 // Request logging middleware
 app.use((req, res, next) => {
   console.log(`${new Date().toISOString()} - ${req.method} ${req.path}`);
+  next();
+});
+
+// Legacy/root aliases for some frontend clients that call routes without the /api prefix.
+// This preserves compatibility without changing the mounted API structure.
+app.use((req, res, next) => {
+  if (req.path === "/login") {
+    req.url = "/api/auth/login" + (req.url.slice(req.path.length) || "");
+  } else if (req.path === "/stockist" || req.path.startsWith("/stockist/")) {
+    req.url = "/api" + req.url;
+  }
   next();
 });
 
@@ -490,8 +542,22 @@ const startServer = async () => {
   try {
     await connectDB();
 
-    app.listen(PORT, HOST, () => {
+    const server =
+      useLocalHttps && sslCredentials
+        ? https.createServer(sslCredentials, app)
+        : http.createServer(app);
+
+    if (useLocalHttps && !sslCredentials) {
+      console.warn(
+        "USE_HTTPS is enabled but SSL key/cert are not configured. Starting HTTP server instead.",
+      );
+    }
+
+    server.listen(PORT, HOST, () => {
       console.log(`Server running on ${HOST}:${PORT}`);
+      console.log(
+        `Protocol: ${useLocalHttps && sslCredentials ? "https" : "http"}`,
+      );
       console.log(`Environment: ${process.env.NODE_ENV}`);
       console.log(`Health check: http://localhost:${PORT}/health`);
     });
@@ -513,4 +579,3 @@ process.on("uncaughtException", (err) => {
 });
 
 startServer();
-
