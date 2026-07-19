@@ -4,6 +4,10 @@ const User = require("../models/User");
 const Purchaser = require("../models/Purchaser");
 const Stockist = require("../models/Stockist");
 const Staff = require("../models/Staff");
+const { logEvent } = require("../utils/eventLog");
+
+// Roles that must pay before login is granted
+const SUBSCRIPTION_ROLES = new Set(["medical_owner", "user", "purchaser"]);
 const { uploadToCloudinary } = require("../config/cloudinary");
 const {
   upload,
@@ -209,12 +213,22 @@ router.post(
         drugLicenseNo,
         drugLicenseImage: drugLicenseImageUrl,
         password: hashedPassword,
+        role: "medical_owner",
+        accountStatus: "pending_payment",
+        paymentStatus: "unpaid",
       });
 
+      logEvent(user._id, "User", "signup_submitted", { email, role: "medical_owner" });
+
+      // Issue tokens so frontend can immediately call /api/payment/create-order
+      const tokenPayload = buildTokenPayload(user, "medical_owner");
       return res.status(201).json({
         success: true,
-        message: "Medical store registered successfully",
-        user: sanitizeUser(user, user.role || "user"),
+        message: "Medical store registered successfully. Please complete payment.",
+        user: sanitizeUser(user, "medical_owner"),
+        accessToken: issueAccessToken(tokenPayload),
+        refreshToken: issueRefreshToken(tokenPayload),
+        requiresPayment: true,
       });
     } catch (error) {
       console.error("Signup error:", error && error.message, error);
@@ -393,9 +407,50 @@ router.post(
         }
       }
 
+      // Subscription gate: medical_owner and purchaser must be active
+      if (SUBSCRIPTION_ROLES.has(account.role)) {
+        const acctStatus = user.accountStatus;
+        if (acctStatus && acctStatus !== "active") {
+          const messages = {
+            pending_payment: "Please complete your subscription payment to access your account.",
+            pending_admin_verification: "Payment received. Your account is awaiting admin verification.",
+            rejected: "Your account has been rejected. Please contact support.",
+          };
+          logEvent(user._id, account.role === "purchaser" ? "Purchaser" : "User", "login_blocked", {
+            reason: acctStatus,
+          });
+          return res.status(403).json({
+            success: false,
+            message: messages[acctStatus] || "Account not active.",
+            accountStatus: acctStatus,
+          });
+        }
+
+        // Check subscription expiry for active accounts
+        if (acctStatus === "active" && user.subscriptionEndDate) {
+          const expired = new Date(user.subscriptionEndDate) < new Date();
+          if (expired) {
+            logEvent(user._id, account.role === "purchaser" ? "Purchaser" : "User", "login_blocked", {
+              reason: "subscription_expired",
+              expiredAt: user.subscriptionEndDate,
+            });
+            return res.status(403).json({
+              success: false,
+              message: "Your subscription has expired. Please renew to continue.",
+              accountStatus: "subscription_expired",
+              subscriptionEndDate: user.subscriptionEndDate,
+            });
+          }
+        }
+      }
+
       const payload = buildTokenPayload(user, account.role);
       const accessToken = issueAccessToken(payload);
       const refreshToken = issueRefreshToken(payload);
+
+      logEvent(user._id, account.role === "purchaser" ? "Purchaser" : "User", "login_success", {
+        role: account.role,
+      });
 
       return res.json({
         success: true,
@@ -653,19 +708,25 @@ router.post(
         photo: photoUpload.url,
         approved: false,
         verified: false,
+        accountStatus: "pending_payment",
+        paymentStatus: "unpaid",
       });
 
+      logEvent(purchaser._id, "Purchaser", "signup_submitted", { email, role: "purchaser" });
+
+      // Issue tokens so frontend can immediately call /api/payment/create-order
       const tokenPayload = buildTokenPayload(purchaser, "purchaser");
 
       return res.status(201).json({
         success: true,
-        message: "Purchaser signup successful! Awaiting stockist verification.",
+        message: "Purchaser signup successful! Please complete payment to activate your account.",
         accessToken: issueAccessToken(tokenPayload),
         refreshToken: issueRefreshToken(tokenPayload),
+        requiresPayment: true,
         purchaser: {
           _id: purchaser._id,
           fullName: purchaser.fullName,
-          approved: purchaser.approved,
+          accountStatus: "pending_payment",
         },
       });
     } catch (error) {

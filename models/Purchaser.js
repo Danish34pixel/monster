@@ -23,6 +23,26 @@ const PurchaserSchema = new mongoose.Schema(
     approved: { type: Boolean, default: false },
     verified: { type: Boolean, default: false },
     purchasingCardRequested: { type: Boolean, default: false },
+    // Payment & subscription flow
+    accountStatus: {
+      type: String,
+      enum: ["pending_payment", "pending_admin_verification", "active", "rejected"],
+      default: "pending_payment",
+    },
+    paymentStatus: {
+      type: String,
+      enum: ["unpaid", "paid", "failed"],
+      default: "unpaid",
+    },
+    razorpayOrderId: { type: String, trim: true },
+    razorpayPaymentId: { type: String, trim: true },
+    planAmount: { type: Number },
+    subscriptionPlan: { type: String, enum: ["monthly", "quarterly", "yearly", null], default: null },
+    pendingPlanKey: { type: String, trim: true },
+    subscriptionStartDate: { type: Date, default: null },
+    subscriptionEndDate: { type: Date, default: null },
+    verifiedAt: { type: Date },
+    verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     createdBy: {
       type: require("mongoose").Schema.Types.ObjectId,
       ref: "User",

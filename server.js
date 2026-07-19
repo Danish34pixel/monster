@@ -326,6 +326,8 @@ app.use("/api/urgent-request", urgentRequestRoutes);
 app.use("/api/ads", adsRoutes);
 // Mount announcements routes
 app.use("/api/announcements", announcementsRoutes);
+app.use("/api/payment", require("./routes/payment"));
+app.use("/api/admin", require("./routes/admin"));
 
 // Health check endpoint
 app.get("/health", (req, res) => {

@@ -40,9 +40,18 @@ const acceptLimiter = rateLimit({
   handler: jsonRateLimitHandler("Too many accept attempts. Please slow down."),
 });
 
+const paymentLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: Number(process.env.PAYMENT_RATE_LIMIT_MAX || 20),
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: jsonRateLimitHandler("Too many payment attempts. Please try again later."),
+});
+
 module.exports = {
   authLimiter,
   passwordResetLimiter,
   refreshLimiter,
   acceptLimiter,
+  paymentLimiter,
 };
