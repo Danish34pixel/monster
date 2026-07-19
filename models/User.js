@@ -118,6 +118,7 @@ const userSchema = new mongoose.Schema(
     razorpayOrderId: { type: String, trim: true },
     razorpayPaymentId: { type: String, trim: true },
     planAmount: { type: Number },
+    paidAt: { type: Date, default: null },
     subscriptionPlan: { type: String, enum: ["monthly", "quarterly", "yearly", null], default: null },
     pendingPlanKey: { type: String, trim: true },
     subscriptionStartDate: { type: Date, default: null },

@@ -3,16 +3,30 @@ const Purchaser = require("../models/Purchaser");
 const EventLog = require("../models/EventLog");
 const { logEvent } = require("../utils/eventLog");
 
+// GET /api/admin/pending-users/count — lightweight badge endpoint
+exports.pendingCount = async (req, res) => {
+  try {
+    const query = { paymentStatus: "paid", accountStatus: "pending_admin_verification" };
+    const [users, purchasers] = await Promise.all([
+      User.countDocuments(query),
+      Purchaser.countDocuments(query),
+    ]);
+    return res.json({ success: true, count: users + purchasers });
+  } catch (err) {
+    return res.status(500).json({ success: false, count: 0 });
+  }
+};
+
 // GET /api/admin/pending-users
 // Users/purchasers who paid and need admin verification
 exports.pendingUsers = async (req, res) => {
   try {
     const [users, purchasers] = await Promise.all([
       User.find({ paymentStatus: "paid", accountStatus: "pending_admin_verification" })
-        .select("medicalName ownerName email role paymentStatus accountStatus razorpayOrderId razorpayPaymentId planAmount subscriptionPlan subscriptionStartDate subscriptionEndDate createdAt")
+        .select("medicalName ownerName email role paymentStatus accountStatus razorpayOrderId razorpayPaymentId planAmount paidAt subscriptionPlan subscriptionStartDate subscriptionEndDate createdAt")
         .lean(),
       Purchaser.find({ paymentStatus: "paid", accountStatus: "pending_admin_verification" })
-        .select("fullName email paymentStatus accountStatus razorpayOrderId razorpayPaymentId planAmount subscriptionPlan subscriptionStartDate subscriptionEndDate createdAt")
+        .select("fullName email paymentStatus accountStatus razorpayOrderId razorpayPaymentId planAmount paidAt subscriptionPlan subscriptionStartDate subscriptionEndDate createdAt")
         .lean(),
     ]);
 

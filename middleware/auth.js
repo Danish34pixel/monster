@@ -144,9 +144,26 @@ const isAdminOrStockist = (req, res, next) => {
   return next();
 };
 
+const SUBSCRIPTION_ROLES = new Set(["medical_owner", "user", "purchaser"]);
+
+const requireActiveAccount = (req, res, next) => {
+  if (!req.user) return next();
+  if (!SUBSCRIPTION_ROLES.has(req.user.role)) return next();
+  const status = req.user.accountStatus;
+  if (status && status !== "active") {
+    return res.status(403).json({
+      success: false,
+      message: "Account not yet active.",
+      accountStatus: status,
+    });
+  }
+  return next();
+};
+
 module.exports = {
   authenticate,
   optionalAuthenticate,
   isAdmin,
   isAdminOrStockist,
+  requireActiveAccount,
 };

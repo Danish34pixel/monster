@@ -1,6 +1,7 @@
 const express = require("express");
 const { authenticate, isAdmin } = require("../middleware/auth");
 const {
+  pendingCount,
   pendingUsers,
   verifyUser,
   rejectUser,
@@ -11,6 +12,7 @@ const router = express.Router();
 
 router.use(authenticate, isAdmin);
 
+router.get("/pending-users/count", pendingCount);
 router.get("/pending-users", pendingUsers);
 router.post("/verify-user/:id", verifyUser);
 router.post("/reject-user/:id", rejectUser);

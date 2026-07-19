@@ -106,6 +106,7 @@ const announcementsRoutes = require("./routes/announcements");
 
 // Import middleware
 const { handleUploadError } = require("./middleware/upload");
+const { requireActiveAccount } = require("./middleware/auth");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -308,7 +309,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/purchaser", purchaserRoutes);
 // Mount placeholder routes for frontend
 app.use("/api/stockist", stockistRoutes);
-app.use("/api/medicine", medicineRoutes);
+app.use("/api/medicine", requireActiveAccount, medicineRoutes);
 app.use("/api/company", companyRoutes);
 // Mount public user routes (list/get) and admin approve/decline endpoints
 app.use("/api/user", userRoutes);
@@ -317,11 +318,11 @@ app.use("/api/staff", staffRoutes);
 // Mount migration routes (dry-run backfill)
 app.use("/api/migration", migrationRoutes);
 // Mount purchasing card request/grant endpoints
-app.use("/api/purchasing-card", purchasingCardRoutes);
+app.use("/api/purchasing-card", requireActiveAccount, purchasingCardRoutes);
 // Mount demand routes
-app.use("/api/demand", demandRoutes);
+app.use("/api/demand", requireActiveAccount, demandRoutes);
 // Mount urgent request routes
-app.use("/api/urgent-request", urgentRequestRoutes);
+app.use("/api/urgent-request", requireActiveAccount, urgentRequestRoutes);
 // Mount ads routes
 app.use("/api/ads", adsRoutes);
 // Mount announcements routes

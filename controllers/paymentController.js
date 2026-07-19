@@ -32,6 +32,7 @@ function applySubscription(doc, planKey) {
   doc.subscriptionStartDate = now;
   doc.subscriptionEndDate = new Date(now.getTime() + plan.durationInDays * 86400000);
   doc.planAmount = plan.amount;
+  doc.paidAt = now;
   doc.pendingPlanKey = undefined;
   doc.paymentStatus = "paid";
   doc.accountStatus = "pending_admin_verification";
