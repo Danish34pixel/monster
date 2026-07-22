@@ -34,10 +34,8 @@ if (CLOUDINARY_CONFIGURED) {
   );
 }
 
-// Upload image to Cloudinary or fallback to local path when Cloudinary is
-// not configured. The function always returns an object with `secure_url`,
-// `url`, and `public_id` (public_id may be null for fallback) to keep
-// callers simple while preserving compatibility.
+// Upload image to Cloudinary and require a secure URL. This helper must not
+// silently fall back to a local upload path.
 const uploadToCloudinary = async (file, folder = "medtek") => {
   if (!file || !file.path) {
     throw new Error("No file provided for upload");
@@ -51,15 +49,12 @@ const uploadToCloudinary = async (file, folder = "medtek") => {
   });
 
   if (!CLOUDINARY_CONFIGURED) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("Cloudinary is not configured in production");
-    }
-    // Return a file:// style URL to the uploaded local file so the rest of
-    // the code can continue. Note: in production you should serve uploads
-    // from a persistent store or configure Cloudinary.
-    const fallbackUrl = `file://${file.path}`;
-    return { secure_url: fallbackUrl, url: fallbackUrl, public_id: null };
+    const errorMessage =
+      "Cloudinary is not configured. Missing CLOUDINARY_CLOUD_NAME/API_KEY/API_SECRET.";
+    console.error(`[Cloudinary] ${errorMessage}`);
+    throw new Error(errorMessage);
   }
+
   const fileExt = path.extname(file.originalname || "");
   const publicId = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}${fileExt}`;
 
@@ -71,13 +66,28 @@ const uploadToCloudinary = async (file, folder = "medtek") => {
       transformation: [{ quality: "auto:good" }, { fetch_format: "auto" }],
     });
 
+    console.log(`[Cloudinary] upload result`, {
+      secure_url: result && result.secure_url,
+      public_id: result && result.public_id,
+      folder,
+    });
+
+    if (!result || !result.secure_url) {
+      const errorMessage =
+        "Cloudinary upload succeeded but secure_url was missing.";
+      console.error(`[Cloudinary] ${errorMessage}`, result);
+      throw new Error(errorMessage);
+    }
+
     return {
       secure_url: result.secure_url,
       url: result.secure_url,
       public_id: result.public_id,
     };
   } catch (error) {
-    throw new Error(`Cloudinary upload failed: ${error && error.message}`);
+    const errorMessage = `Cloudinary upload failed: ${error && error.message}`;
+    console.error(`[Cloudinary] ${errorMessage}`);
+    throw new Error(errorMessage);
   }
 };
 

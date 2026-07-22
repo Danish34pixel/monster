@@ -199,12 +199,7 @@ router.post(
           .json({ success: false, message: "Media file is required." });
       }
 
-      console.log("[Ads] Incoming file:", {
-        originalname: req.file.originalname,
-        mimetype: req.file.mimetype,
-        size: req.file.size,
-        fieldname: req.file.fieldname,
-      });
+      console.log("[Ads] req.file:", req.file);
       console.log("[Ads] Local temp path:", req.file.path);
 
       const { title, stockistId, expiresAt } = req.body || {};
@@ -239,9 +234,8 @@ router.post(
 
       const cloudinaryResponse = await uploadToCloudinary(req.file, "ads");
       console.log("[Ads] Cloudinary upload result:", cloudinaryResponse);
-      const mediaUrl =
-        cloudinaryResponse?.secure_url || cloudinaryResponse?.url;
-      console.log("[Ads] secure_url:", mediaUrl);
+      const mediaUrl = cloudinaryResponse?.secure_url;
+      console.log("[Ads] resolved mediaUrl:", mediaUrl);
 
       if (!mediaUrl) {
         throw new Error("Cloudinary upload did not return a secure URL");
@@ -282,12 +276,10 @@ router.post(
         err.message &&
         err.message.includes("Cloudinary upload failed")
       ) {
-        return res
-          .status(500)
-          .json({
-            success: false,
-            message: "Image upload to Cloudinary failed.",
-          });
+        return res.status(500).json({
+          success: false,
+          message: "Image upload to Cloudinary failed.",
+        });
       }
       if (err && err.message && err.message.includes("Missing image")) {
         return res
@@ -300,12 +292,10 @@ router.post(
           .json({ success: false, message: "Invalid image file." });
       }
       if (err && err.message && err.message.includes("secure URL")) {
-        return res
-          .status(500)
-          .json({
-            success: false,
-            message: "Cloudinary did not return a valid secure URL.",
-          });
+        return res.status(500).json({
+          success: false,
+          message: "Cloudinary did not return a valid secure URL.",
+        });
       }
       return res
         .status(500)
