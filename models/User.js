@@ -64,7 +64,7 @@ const userSchema = new mongoose.Schema(
     },
     isVerified: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     // Whether the user has been granted a purchasing card (can manage purchasers)
     hasPurchasingCard: {
@@ -79,7 +79,7 @@ const userSchema = new mongoose.Schema(
     // Admin approval flags for user accounts
     approved: {
       type: Boolean,
-      default: false,
+      default: true,
     },
     declined: {
       type: Boolean,
@@ -108,12 +108,12 @@ const userSchema = new mongoose.Schema(
     accountStatus: {
       type: String,
       enum: ["pending_payment", "pending_admin_verification", "active", "rejected"],
-      default: "pending_payment",
+      default: "active",
     },
     paymentStatus: {
       type: String,
       enum: ["unpaid", "paid", "failed"],
-      default: "unpaid",
+      default: "paid",
     },
     razorpayOrderId: { type: String, trim: true },
     razorpayPaymentId: { type: String, trim: true },

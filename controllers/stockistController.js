@@ -270,8 +270,8 @@ exports.createStockist = async (req, res) => {
       payload.password = await bcrypt.hash(String(req.body.password), 12);
     }
 
-    payload.status = "processing";
-    payload.approved = false;
+    payload.status = "approved";
+    payload.approved = true;
     payload.declined = false;
 
     const stockist = await Stockist.create(payload);
@@ -320,8 +320,8 @@ exports.registerStockist = async (req, res) => {
       }
     }
 
-    payload.status = "processing";
-    payload.approved = false;
+    payload.status = "approved";
+    payload.approved = true;
     payload.declined = false;
 
     const stockist = await Stockist.create(payload);
@@ -386,6 +386,15 @@ exports.verifyStockistPassword = async (req, res) => {
       .status(500)
       .json({ success: false, message: "Password verification failed" });
   }
+};
+
+exports.getMyProfile = async (req, res) => {
+  if (!req.user || req.user.role !== "stockist") {
+    return res
+      .status(403)
+      .json({ success: false, message: "Stockist access required." });
+  }
+  return res.status(200).json({ success: true, data: sanitizeStockist(req.user) });
 };
 
 exports.getStockistById = async (req, res) => {

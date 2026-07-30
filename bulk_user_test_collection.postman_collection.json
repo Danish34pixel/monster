@@ -2,7 +2,7 @@
   "info": {
     "name": "Medi-Trap | Bulk Signup Test (100 Users)",
     "_postman_id": "medi-trap-bulk-signup-2025-10-19",
-    "description": "Creates 100 medical store users using live signup API: https://api.medi-trap.com/api/auth/signup",
+    "description": "Creates 100 medical store users using live signup API: http://localhost:5002/api/auth/signup",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -62,7 +62,7 @@
           ]
         },
         "url": {
-          "raw": "https://api.medi-trap.com/api/auth/signup",
+          "raw": "http://localhost:5002/api/auth/signup",
           "protocol": "https",
           "host": ["api", "medi-trap", "com"],
           "path": ["api", "auth", "signup"]

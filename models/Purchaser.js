@@ -20,19 +20,19 @@ const PurchaserSchema = new mongoose.Schema(
     aadharImage: { type: String, required: true },
     photo: { type: String, required: true },
     photoPublicId: { type: String, trim: true },
-    approved: { type: Boolean, default: false },
-    verified: { type: Boolean, default: false },
+    approved: { type: Boolean, default: true },
+    verified: { type: Boolean, default: true },
     purchasingCardRequested: { type: Boolean, default: false },
     // Payment & subscription flow
     accountStatus: {
       type: String,
       enum: ["pending_payment", "pending_admin_verification", "active", "rejected"],
-      default: "pending_payment",
+      default: "active",
     },
     paymentStatus: {
       type: String,
       enum: ["unpaid", "paid", "failed"],
-      default: "unpaid",
+      default: "paid",
     },
     razorpayOrderId: { type: String, trim: true },
     razorpayPaymentId: { type: String, trim: true },

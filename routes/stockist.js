@@ -15,6 +15,7 @@ const { stockistCreateSchema } = require("../validation/schemas");
 // without requiring a logged-in token.
 router.get("/", optionalAuthenticate, stockistController.getStockists);
 router.get("/by-medicine", stockistController.searchByMedicine);
+router.get("/me", authenticate, stockistController.getMyProfile);
 router.get("/:id", authenticate, stockistController.getStockistById);
 
 router.post("/", authenticate, validateBody(stockistCreateSchema), stockistController.createStockist);
