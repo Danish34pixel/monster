@@ -2,7 +2,7 @@
   "info": {
     "name": "Medi-Trap | Bulk Purchaser Register (100 Users)",
     "_postman_id": "medi-trap-bulk-purchaser-2025-10-22",
-    "description": "Creates 100 random purchaser entries using live register API: http://localhost:5002/api/purchaser/register",
+    "description": "Creates 100 random purchaser entries using live register API: https://api.medi-trap.com//api/purchaser/register",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -54,12 +54,20 @@
             { "key": "contactNo", "value": "{{contactNo}}", "type": "text" },
             { "key": "email", "value": "{{email}}", "type": "text" },
             { "key": "password", "value": "{{password}}", "type": "text" },
-            { "key": "aadharImage", "type": "file", "src": "C:/Users/divya/OneDrive/Pictures/Screenshots/Screenshot 2025-03-31 111634.png" },
-            { "key": "photo", "type": "file", "src": "C:/Users/divya/OneDrive/Pictures/Screenshots/Screenshot 2025-03-31 111634.png" }
+            {
+              "key": "aadharImage",
+              "type": "file",
+              "src": "C:/Users/divya/OneDrive/Pictures/Screenshots/Screenshot 2025-03-31 111634.png"
+            },
+            {
+              "key": "photo",
+              "type": "file",
+              "src": "C:/Users/divya/OneDrive/Pictures/Screenshots/Screenshot 2025-03-31 111634.png"
+            }
           ]
         },
         "url": {
-          "raw": "http://localhost:5002/api/purchaser/register",
+          "raw": "https://api.medi-trap.com//api/purchaser/register",
           "protocol": "https",
           "host": ["api", "medi-trap", "com"],
           "path": ["api", "purchaser", "register"]
