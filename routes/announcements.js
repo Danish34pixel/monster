@@ -3,10 +3,21 @@ const router = express.Router();
 const Announcement = require("../models/Announcement");
 const { authenticate, isAdmin } = require("../middleware/auth");
 
+const isValidObjectId = (value) =>
+  typeof value === "string" && /^[0-9a-fA-F]{24}$/.test(value);
+
+const normalizeAnnouncementRole = (role) => {
+  const normalized = String(role || "").trim().toLowerCase();
+  if (normalized === "medical_owner" || normalized === "medicalowner") {
+    return "user";
+  }
+  return normalized;
+};
+
 // GET /api/announcements — active announcements for the logged-in user's role
 router.get("/", authenticate, async (req, res) => {
   try {
-    const role = req.user.role;
+    const role = normalizeAnnouncementRole(req.user.role);
     const filter = { isActive: true };
     if (role !== "admin") {
       filter.targetRoles = { $in: [role] };
@@ -22,33 +33,6 @@ router.get("/", authenticate, async (req, res) => {
   }
 });
 
-// GET /api/announcements/:id — fetch a single announcement if visible to the user
-router.get("/:id", authenticate, async (req, res) => {
-  try {
-    const announcement = await Announcement.findById(req.params.id).lean();
-    if (!announcement) {
-      return res.status(404).json({ success: false, message: "Announcement not found." });
-    }
-
-    if (req.user.role !== "admin") {
-      const targetRoles = Array.isArray(announcement.targetRoles)
-        ? announcement.targetRoles
-        : [];
-      if (!announcement.isActive || !targetRoles.includes(req.user.role)) {
-        return res.status(403).json({
-          success: false,
-          message: "Access denied.",
-        });
-      }
-    }
-
-    return res.json({ success: true, data: announcement });
-  } catch (err) {
-    console.error("Announcement detail error:", err);
-    return res.status(500).json({ success: false, message: "Failed to fetch announcement." });
-  }
-});
-
 // GET /api/announcements/all — admin: all announcements
 router.get("/all", authenticate, isAdmin, async (req, res) => {
   try {
@@ -59,6 +43,45 @@ router.get("/all", authenticate, isAdmin, async (req, res) => {
     return res.json({ success: true, data: announcements });
   } catch (err) {
     return res.status(500).json({ success: false, message: "Failed to fetch announcements." });
+  }
+});
+
+// GET /api/announcements/:id — fetch a single announcement if visible to the user
+router.get("/:id", authenticate, async (req, res) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({
+        success: false,
+        message: "Announcement not found.",
+      });
+    }
+
+    const announcement = await Announcement.findById(req.params.id).lean();
+    if (!announcement) {
+      return res
+        .status(404)
+        .json({ success: false, message: "Announcement not found." });
+    }
+
+    if (req.user.role !== "admin") {
+      const viewerRole = normalizeAnnouncementRole(req.user.role);
+      const targetRoles = Array.isArray(announcement.targetRoles)
+        ? announcement.targetRoles
+        : [];
+      if (!announcement.isActive || !targetRoles.includes(viewerRole)) {
+        return res.status(403).json({
+          success: false,
+          message: "Access denied.",
+        });
+      }
+    }
+
+    return res.json({ success: true, data: announcement });
+  } catch (err) {
+    console.error("Announcement detail error:", err);
+    return res
+      .status(500)
+      .json({ success: false, message: "Failed to fetch announcement." });
   }
 });
 
@@ -93,6 +116,9 @@ router.post("/", authenticate, isAdmin, async (req, res) => {
 // POST /api/announcements/:id/read — mark read by current user
 router.post("/:id/read", authenticate, async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ success: false, message: "Not found." });
+    }
     await Announcement.findByIdAndUpdate(req.params.id, {
       $addToSet: { readBy: req.user._id },
     });
@@ -105,6 +131,9 @@ router.post("/:id/read", authenticate, async (req, res) => {
 // PATCH /api/announcements/:id — admin: toggle active or edit
 router.patch("/:id", authenticate, isAdmin, async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ success: false, message: "Not found." });
+    }
     const { isActive, title, message } = req.body || {};
     const update = {};
     if (typeof isActive === "boolean") update.isActive = isActive;
@@ -125,6 +154,9 @@ router.patch("/:id", authenticate, isAdmin, async (req, res) => {
 // DELETE /api/announcements/:id — admin: delete
 router.delete("/:id", authenticate, isAdmin, async (req, res) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return res.status(404).json({ success: false, message: "Not found." });
+    }
     await Announcement.findByIdAndDelete(req.params.id);
     return res.json({ success: true });
   } catch (err) {

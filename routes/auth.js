@@ -345,8 +345,8 @@ router.post(
         aadharCard: aadharRes.url,
         imagePublicId: imgRes.public_id,
         aadharPublicId: aadharRes.public_id,
-        approved: false,
-        approvalStatus: "pending",
+        approved: true,
+        approvalStatus: "approved",
         ...workplace,
       });
 

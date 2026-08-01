@@ -164,8 +164,8 @@ exports.createStaff = async (req, res) => {
       currentWorkingPlace,
       isFresher: isFresher === "true" || isFresher === true,
       password: hashedPassword,
-      approved: false,
-      approvalStatus: "pending",
+      approved: true,
+      approvalStatus: "approved",
       ...workplace,
     });
 

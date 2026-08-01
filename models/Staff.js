@@ -12,7 +12,7 @@ const StaffSchema = new mongoose.Schema(
     imagePublicId: { type: String, trim: true },
     aadharPublicId: { type: String, trim: true },
     password: { type: String }, // For staff login
-    approved: { type: Boolean, default: true }, // Kept for backward compatibility
+    approved: { type: Boolean, default: true },
     approvalStatus: {
       type: String,
       enum: ["pending", "approved", "declined"],
