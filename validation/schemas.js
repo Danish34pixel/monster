@@ -132,7 +132,7 @@ const medicineCreateSchema = z.object({
 const stockistCreateSchema = z.object({
   name: z.string().trim().min(2).max(120),
   contactPerson: z.string().trim().max(120).optional(),
-  phone: z.string().trim().max(20).optional(),
+  phone: z.string().trim().min(7).max(20),
   email: email.optional(),
   password: password.optional(),
   licenseNumber: z.string().trim().max(60).optional(),

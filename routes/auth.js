@@ -41,6 +41,7 @@ const {
   verifyRefreshToken,
   buildTokenPayload,
 } = require("../utils/tokenService");
+const { computeTrialEndDate, checkTrialStatus } = require("../utils/trialStatus");
 
 const router = express.Router();
 
@@ -204,6 +205,9 @@ router.post(
 
       const hashedPassword = await bcrypt.hash(payload.password, 12);
 
+      const trialStartDate = new Date();
+      const trialEndDate = computeTrialEndDate(trialStartDate);
+
       const user = await User.create({
         medicalName: payload.medicalName,
         ownerName: payload.ownerName,
@@ -214,21 +218,32 @@ router.post(
         drugLicenseImage: drugLicenseImageUrl,
         password: hashedPassword,
         role: "medical_owner",
-        accountStatus: "pending_payment",
+        // Trial starts immediately; no Razorpay order is created at signup.
+        accountStatus: "active",
         paymentStatus: "unpaid",
+        trialStartDate,
+        trialEndDate,
+        isTrialActive: true,
+        paymentRequired: false,
       });
 
-      logEvent(user._id, "User", "signup_submitted", { email, role: "medical_owner" });
+      logEvent(user._id, "User", "signup_submitted", {
+        email,
+        role: "medical_owner",
+        trialStartDate,
+        trialEndDate,
+      });
 
-      // Issue tokens so frontend can immediately call /api/payment/create-order
       const tokenPayload = buildTokenPayload(user, "medical_owner");
       return res.status(201).json({
         success: true,
-        message: "Medical store registered successfully. Please complete payment.",
+        message: `Medical store registered successfully. Your 90-day free trial is active until ${trialEndDate.toISOString().slice(0, 10)}.`,
         user: sanitizeUser(user, "medical_owner"),
         accessToken: issueAccessToken(tokenPayload),
         refreshToken: issueRefreshToken(tokenPayload),
-        requiresPayment: true,
+        trialActive: true,
+        trialEndDate,
+        paymentRequired: false,
       });
     } catch (error) {
       console.error("Signup error:", error && error.message, error);
@@ -419,11 +434,21 @@ router.post(
           logEvent(user._id, account.role === "purchaser" ? "Purchaser" : "User", "login_blocked", {
             reason: acctStatus,
           });
-          return res.status(403).json({
+          // Issue tokens so the app can continue on to the payment flow /
+          // poll approval status — except for "rejected", which is a dead
+          // end with no follow-up action.
+          const blockedResponse = {
             success: false,
             message: messages[acctStatus] || "Account not active.",
             accountStatus: acctStatus,
-          });
+          };
+          if (acctStatus !== "rejected") {
+            const payload = buildTokenPayload(user, account.role);
+            blockedResponse.accessToken = issueAccessToken(payload);
+            blockedResponse.refreshToken = issueRefreshToken(payload);
+            blockedResponse.user = sanitizeUser(user, account.role);
+          }
+          return res.status(403).json(blockedResponse);
         }
 
         // Check subscription expiry for active accounts
@@ -434,11 +459,45 @@ router.post(
               reason: "subscription_expired",
               expiredAt: user.subscriptionEndDate,
             });
+            const payload = buildTokenPayload(user, account.role);
             return res.status(403).json({
               success: false,
               message: "Your subscription has expired. Please renew to continue.",
               accountStatus: "subscription_expired",
               subscriptionEndDate: user.subscriptionEndDate,
+              accessToken: issueAccessToken(payload),
+              refreshToken: issueRefreshToken(payload),
+              user: sanitizeUser(user, account.role),
+            });
+          }
+        }
+
+        // Check trial expiry for accounts that have never completed a real
+        // paid subscription (subscriptionEndDate is only set once they have).
+        if (acctStatus === "active" && !user.subscriptionEndDate) {
+          const trial = checkTrialStatus(user);
+          if (trial.applicable && !trial.trialActive) {
+            user.isTrialActive = false;
+            user.paymentRequired = true;
+            user.accountStatus = "pending_payment";
+            await user.save();
+
+            logEvent(user._id, account.role === "purchaser" ? "Purchaser" : "User", "login_blocked", {
+              reason: "trial_expired",
+              trialEndDate: trial.trialEndDate,
+            });
+            const payload = buildTokenPayload(user, account.role);
+            return res.status(403).json({
+              success: false,
+              message:
+                "Your 90-day free trial has ended. Please complete payment via /api/payment/create-order to continue.",
+              accountStatus: "pending_payment",
+              trialActive: false,
+              paymentRequired: true,
+              trialEndDate: trial.trialEndDate,
+              accessToken: issueAccessToken(payload),
+              refreshToken: issueRefreshToken(payload),
+              user: sanitizeUser(user, account.role),
             });
           }
         }
@@ -698,6 +757,10 @@ router.post(
       ]);
 
       const hashedPassword = await bcrypt.hash(payload.password, 12);
+
+      const trialStartDate = new Date();
+      const trialEndDate = computeTrialEndDate(trialStartDate);
+
       const purchaser = await Purchaser.create({
         fullName: payload.fullName,
         email,
@@ -706,27 +769,39 @@ router.post(
         password: hashedPassword,
         aadharImage: aadharUpload.url,
         photo: photoUpload.url,
-        approved: false,
-        verified: false,
-        accountStatus: "pending_payment",
+        // Purchasers are auto-approved/verified at signup — no admin review for this role.
+        approved: true,
+        verified: true,
+        // Trial starts immediately; no Razorpay order is created at signup.
+        accountStatus: "active",
         paymentStatus: "unpaid",
+        trialStartDate,
+        trialEndDate,
+        isTrialActive: true,
+        paymentRequired: false,
       });
 
-      logEvent(purchaser._id, "Purchaser", "signup_submitted", { email, role: "purchaser" });
+      logEvent(purchaser._id, "Purchaser", "signup_submitted", {
+        email,
+        role: "purchaser",
+        trialStartDate,
+        trialEndDate,
+      });
 
-      // Issue tokens so frontend can immediately call /api/payment/create-order
       const tokenPayload = buildTokenPayload(purchaser, "purchaser");
 
       return res.status(201).json({
         success: true,
-        message: "Purchaser signup successful! Please complete payment to activate your account.",
+        message: `Purchaser signup successful! Your 90-day free trial is active until ${trialEndDate.toISOString().slice(0, 10)}.`,
         accessToken: issueAccessToken(tokenPayload),
         refreshToken: issueRefreshToken(tokenPayload),
-        requiresPayment: true,
+        trialActive: true,
+        trialEndDate,
+        paymentRequired: false,
         purchaser: {
           _id: purchaser._id,
           fullName: purchaser.fullName,
-          accountStatus: "pending_payment",
+          accountStatus: "active",
         },
       });
     } catch (error) {

@@ -296,6 +296,12 @@ exports.registerStockist = async (req, res) => {
         .status(400)
         .json({ success: false, message: "Stockist name is required." });
     }
+    if (!payload.phone || payload.phone.trim().length < 7 || payload.phone.trim().length > 20) {
+      return res.status(400).json({
+        success: false,
+        message: "A valid contact number (7-20 characters) is required.",
+      });
+    }
 
     await ensureUnique(payload.email, payload.phone);
 

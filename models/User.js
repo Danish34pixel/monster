@@ -125,6 +125,11 @@ const userSchema = new mongoose.Schema(
     subscriptionEndDate: { type: Date, default: null },
     verifiedAt: { type: Date },
     verifiedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    // 90-day free trial (set at signup; no payment required until it lapses)
+    trialStartDate: { type: Date },
+    trialEndDate: { type: Date },
+    isTrialActive: { type: Boolean, default: false },
+    paymentRequired: { type: Boolean, default: false },
   },
   {
     timestamps: true,

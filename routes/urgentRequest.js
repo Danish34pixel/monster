@@ -9,8 +9,11 @@ const { acceptLimiter } = require("../middleware/rateLimiters");
 
 const uid = (user) => String(user._id || user.id);
 
-// Medical owners can have role "user" (regular) or "admin"
-const isMedicalOwner = (user) => ["user", "admin"].includes(user.role);
+// Medical owners are stored with role "medical_owner" (current signup default,
+// since the User.role enum/default changed in commit ebc0ab3). "user" is kept
+// for backward compatibility with accounts created before that change, and
+// "admin" for admin override.
+const isMedicalOwner = (user) => ["user", "medical_owner", "admin"].includes(user.role);
 
 // ── Backward-compat shim ──────────────────────────────────────────────────────
 // Old documents (pre-multi-item) have flat itemName/quantity/urgencyNote.

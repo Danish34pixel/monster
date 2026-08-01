@@ -49,6 +49,11 @@ const PurchaserSchema = new mongoose.Schema(
       ref: "User",
       required: false,
     },
+    // 90-day free trial (set at signup; no payment required until it lapses)
+    trialStartDate: { type: Date },
+    trialEndDate: { type: Date },
+    isTrialActive: { type: Boolean, default: false },
+    paymentRequired: { type: Boolean, default: false },
   },
   { strict: true, timestamps: true }
 );

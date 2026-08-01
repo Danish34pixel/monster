@@ -137,6 +137,7 @@ async function distributeDemand(demand = {}, options = {}) {
     if (matches.length === 0) {
       unfulfilledItems.push({ name: item.requestedAs });
       inventoryMapping.push({
+        medicineId: item.medicineId,
         medicineName: item.medicineName,
         requestedAs: item.requestedAs,
         stockists: [],
@@ -145,9 +146,10 @@ async function distributeDemand(demand = {}, options = {}) {
     }
 
     matchedCount += 1;
-    
+
     // Inventory view (Medicine -> Stockists)
     inventoryMapping.push({
+      medicineId: item.medicineId,
       medicineName: item.medicineName,
       requestedAs: item.requestedAs,
       stockists: matches.map(m => ({
@@ -162,7 +164,7 @@ async function distributeDemand(demand = {}, options = {}) {
     for (const supplier of selected) {
       const key = String(supplier.supplierId);
       const existing = supplierBuckets.get(key) || {
-        supplierId: supplier.supplierId,
+        stockistId: supplier.supplierId,
         supplierName: supplier.supplierName,
         items: [],
         status: "pending",

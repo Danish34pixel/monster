@@ -3,6 +3,7 @@ const Stockist = require("../models/Stockist");
 const Purchaser = require("../models/Purchaser");
 const Staff = require("../models/Staff");
 const { verifyAccessToken } = require("../utils/tokenService");
+const { checkTrialStatus } = require("../utils/trialStatus");
 
 async function resolveUserFromToken(decoded) {
   const { userId, role } = decoded;
@@ -146,10 +147,41 @@ const isAdminOrStockist = (req, res, next) => {
 
 const SUBSCRIPTION_ROLES = new Set(["medical_owner", "user", "purchaser"]);
 
-const requireActiveAccount = (req, res, next) => {
+function accountModelForRole(role) {
+  return role === "purchaser" ? Purchaser : User;
+}
+
+const requireActiveAccount = async (req, res, next) => {
   if (!req.user) return next();
   if (!SUBSCRIPTION_ROLES.has(req.user.role)) return next();
+
   const status = req.user.accountStatus;
+
+  // Lazily expire an in-progress trial before evaluating access. Only
+  // applies to accounts that are on a trial and have never completed a
+  // real paid subscription (subscriptionEndDate is set once they have).
+  if (status === "active" && !req.user.subscriptionEndDate) {
+    const trial = checkTrialStatus(req.user);
+    if (trial.applicable && !trial.trialActive) {
+      const Model = accountModelForRole(req.user.role);
+      await Model.findByIdAndUpdate(req.user._id, {
+        isTrialActive: false,
+        paymentRequired: true,
+        accountStatus: "pending_payment",
+      }).catch(() => {});
+
+      return res.status(403).json({
+        success: false,
+        message:
+          "Your 90-day free trial has ended. Please complete payment via /api/payment/create-order to continue.",
+        accountStatus: "pending_payment",
+        trialActive: false,
+        paymentRequired: true,
+        trialEndDate: trial.trialEndDate,
+      });
+    }
+  }
+
   if (status && status !== "active") {
     return res.status(403).json({
       success: false,

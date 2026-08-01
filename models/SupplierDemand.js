@@ -9,7 +9,7 @@ const SupplierDemandItemSchema = new mongoose.Schema(
 
 const SupplierDemandSchema = new mongoose.Schema(
   {
-    supplierId: {
+    stockistId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Stockist",
       required: true,
@@ -25,7 +25,7 @@ const SupplierDemandSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "accepted", "rejected", "fulfilled"],
+      enum: ["pending", "sent", "accepted", "dispatched", "completed", "rejected"],
       default: "pending",
       index: true,
     },
@@ -35,12 +35,17 @@ const SupplierDemandSchema = new mongoose.Schema(
       required: true,
       index: true,
     },
+    sentAt: { type: Date, default: null },
+    acceptedAt: { type: Date, default: null },
+    dispatchedAt: { type: Date, default: null },
+    completedAt: { type: Date, default: null },
+    rejectedAt: { type: Date, default: null },
   },
   { strict: true, timestamps: true }
 );
 
-SupplierDemandSchema.index({ supplierId: 1, status: 1, createdAt: -1 });
-SupplierDemandSchema.index({ originalDemandId: 1, supplierId: 1 }, { unique: true });
+SupplierDemandSchema.index({ stockistId: 1, status: 1, createdAt: -1 });
+SupplierDemandSchema.index({ originalDemandId: 1, stockistId: 1 }, { unique: true });
 
 module.exports = mongoose.model("SupplierDemand", SupplierDemandSchema);
 
