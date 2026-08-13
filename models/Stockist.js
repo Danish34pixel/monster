@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { passwordResetTokenPlugin } = require("../utils/passwordResetToken");
 
 const StockistSchema = new mongoose.Schema(
   {
@@ -52,6 +53,8 @@ const StockistSchema = new mongoose.Schema(
   },
   { strict: true, timestamps: true }
 );
+
+StockistSchema.plugin(passwordResetTokenPlugin);
 
 StockistSchema.set("toJSON", {
   transform: function (doc, ret) {

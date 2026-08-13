@@ -28,12 +28,14 @@ const {
   refreshSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  resetPasswordTokenBodySchema,
   updateProfileSchema,
   purchaserSignupSchema,
 } = require("../validation/schemas");
 const {
   forgotPassword,
   resetPassword,
+  resetPasswordWithToken,
 } = require("../controllers/passwordController");
 const {
   issueAccessToken,
@@ -630,6 +632,15 @@ router.post(
   passwordResetLimiter,
   validateBody(resetPasswordSchema),
   resetPassword,
+);
+
+// Link-based reset flow: token travels in the URL (emailed reset link),
+// new password pair travels in the body.
+router.post(
+  "/reset-password/:token",
+  passwordResetLimiter,
+  validateBody(resetPasswordTokenBodySchema),
+  resetPasswordWithToken,
 );
 
 router.put(

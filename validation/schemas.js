@@ -39,6 +39,18 @@ const resetPasswordSchema = z.object({
   newPassword: password,
 });
 
+// Body shape for POST /api/auth/reset-password/:token — the token itself
+// travels in the URL param, so only the new password pair is validated here.
+const resetPasswordTokenBodySchema = z
+  .object({
+    password,
+    confirmPassword: password,
+  })
+  .refine((v) => v.password === v.confirmPassword, {
+    message: "Passwords do not match",
+    path: ["confirmPassword"],
+  });
+
 const updateProfileSchema = z
   .object({
     medicalName: z.string().trim().min(2).max(100).optional(),
@@ -144,6 +156,7 @@ module.exports = {
   refreshSchema,
   forgotPasswordSchema,
   resetPasswordSchema,
+  resetPasswordTokenBodySchema,
   updateProfileSchema,
   purchaserSignupSchema,
   purchaserCreateSchema,

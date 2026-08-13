@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { passwordResetTokenPlugin } = require("../utils/passwordResetToken");
 
 const PurchaserSchema = new mongoose.Schema(
   {
@@ -57,6 +58,8 @@ const PurchaserSchema = new mongoose.Schema(
   },
   { strict: true, timestamps: true }
 );
+
+PurchaserSchema.plugin(passwordResetTokenPlugin);
 
 PurchaserSchema.set("toJSON", {
   transform: (doc, ret) => {

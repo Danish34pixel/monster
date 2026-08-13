@@ -6,12 +6,45 @@ function parseBool(val) {
   return String(val).toLowerCase() === "true";
 }
 
+// Gmail App Passwords are displayed in 4-4-4-4 groups for readability but
+// the actual credential has no spaces — strip them so a copy-pasted value
+// (with or without spaces) always authenticates correctly.
+function cleanSecret(val) {
+  return val ? String(val).replace(/\s+/g, "") : val;
+}
+
+// SMTP_* is the canonical name set (matches .env.example / docs); EMAIL_* is
+// kept only as a legacy fallback. SMTP_* wins when both are set so a stale
+// EMAIL_* value can never silently shadow a correct SMTP_* one — that
+// precedence bug (EMAIL_PASS still holding a placeholder while SMTP_PASS had
+// the real app password) is exactly what caused the 535 auth failure.
+function resolveSmtpConfig() {
+  const user = process.env.SMTP_USER || process.env.EMAIL_USER;
+  const pass = cleanSecret(process.env.SMTP_PASS || process.env.EMAIL_PASS);
+  const host = process.env.SMTP_HOST || process.env.EMAIL_HOST || "smtp.gmail.com";
+  const port = Number(process.env.SMTP_PORT || process.env.EMAIL_PORT || 587);
+  const secure = parseBool(process.env.SMTP_SECURE || process.env.EMAIL_SECURE);
+  const from =
+    process.env.SMTP_FROM || process.env.EMAIL_FROM || user || "no-reply@example.com";
+  return { user, pass, host, port, secure, from };
+}
+
+// Logs nodemailer/SMTP-specific diagnostic fields (never the credential
+// itself) so auth failures are actionable from server logs alone.
+function logSmtpErrorDetails(context, err) {
+  if (!err) return;
+  console.error(`${context}:`, {
+    message: err.message,
+    code: err.code,
+    responseCode: err.responseCode,
+    response: err.response,
+    command: err.command,
+  });
+}
+
 async function createTransporter() {
-  const emailUser = process.env.EMAIL_USER || process.env.SMTP_USER;
-  const emailPass = process.env.EMAIL_PASS || process.env.SMTP_PASS;
-  const emailHost = process.env.EMAIL_HOST || process.env.SMTP_HOST;
-  const emailPort = process.env.EMAIL_PORT || process.env.SMTP_PORT;
-  const emailSecure = process.env.EMAIL_SECURE || process.env.SMTP_SECURE;
+  const { user: emailUser, pass: emailPass, host: emailHost, port: emailPort, secure: emailSecure } =
+    resolveSmtpConfig();
   const sendgridKey = process.env.SENDGRID_API_KEY || process.env.SENDGRID_KEY;
   // Control explicit SendGrid use via env var. By default prefer SMTP creds and nodemailer.
   const useSendGrid =
@@ -22,11 +55,11 @@ async function createTransporter() {
 
   if (isProduction && !emailUser) {
     throw new Error(
-      "Mailer: SMTP credentials missing in production (EMAIL_USER or SMTP_USER)"
+      "Mailer: SMTP credentials missing in production (SMTP_USER or EMAIL_USER)"
     );
   }
 
-  // If dev and Ethereal requested OR no SMTP credentials present -> Ethereal
+  // If Ethereal explicitly requested OR no SMTP credentials present -> Ethereal
   if (useEthereal) {
     const testAccount = await nodemailer.createTestAccount();
     const transporter = nodemailer.createTransport({
@@ -38,7 +71,7 @@ async function createTransporter() {
     try {
       await transporter.verify();
     } catch (err) {
-      console.error("Ethereal verify failed:", err && err.message);
+      logSmtpErrorDetails("Ethereal verify failed", err);
     }
     return { transporter, preview: true };
   }
@@ -65,10 +98,7 @@ async function createTransporter() {
     try {
       await transporter.verify();
     } catch (verifyErr) {
-      console.error(
-        "SendGrid SMTP verify failed:",
-        verifyErr && verifyErr.message
-      );
+      logSmtpErrorDetails("SendGrid SMTP verify failed", verifyErr);
       throw verifyErr;
     }
     return { transporter, preview: false };
@@ -80,9 +110,9 @@ async function createTransporter() {
     );
   }
 
-  const host = emailHost || "smtp.gmail.com";
-  const port = emailPort ? Number(emailPort) : 587;
-  const secure = parseBool(emailSecure);
+  const host = emailHost;
+  const port = emailPort;
+  const secure = emailSecure;
 
   // Development-only helper logging to surface common misconfigurations
   if (process.env.NODE_ENV === "development") {
@@ -98,6 +128,8 @@ async function createTransporter() {
       secure,
       "user:",
       redactedUser,
+      "passwordLength:",
+      emailPass ? emailPass.length : 0,
       "useEthereal:",
       useEthereal
     );
@@ -116,7 +148,7 @@ async function createTransporter() {
   try {
     await transporter.verify();
   } catch (verifyErr) {
-    console.error("Mailer verify failed:", verifyErr && verifyErr.message);
+    logSmtpErrorDetails("Mailer verify failed", verifyErr);
     throw verifyErr;
   }
 
@@ -128,11 +160,8 @@ async function sendMail({ to, subject, html, text, from }) {
   try {
     const primary = await createTransporter();
     const { transporter, preview: isPreview } = primary;
-    const effectiveFrom =
-      from ||
-      process.env.EMAIL_FROM ||
-      process.env.EMAIL_USER ||
-      "no-reply@example.com";
+    const { from: resolvedFrom } = resolveSmtpConfig();
+    const effectiveFrom = from || resolvedFrom;
     if (process.env.NODE_ENV === "development")
       console.log("sendMail: sending from=", effectiveFrom, "to=", to);
     const info = await transporter.sendMail({
@@ -147,11 +176,13 @@ async function sendMail({ to, subject, html, text, from }) {
       : null;
     return { info, previewUrl };
   } catch (smtpErr) {
-    console.error(
-      "sendMail: primary transport failed",
-      smtpErr && smtpErr.message
-    );
-    if (process.env.NODE_ENV === "development") {
+    logSmtpErrorDetails("sendMail: primary transport failed", smtpErr);
+
+    // Ethereal (fake test inbox) is only used as a fallback when explicitly
+    // opted into via USE_ETHEREAL=true — silently masking a real send
+    // failure behind a fake success (as a NODE_ENV==='development' check
+    // used to do) makes SMTP auth bugs like this one much harder to catch.
+    if (parseBool(process.env.USE_ETHEREAL)) {
       try {
         const testAccount = await nodemailer.createTestAccount();
         const fallbackTransporter = nodemailer.createTransport({
@@ -160,11 +191,8 @@ async function sendMail({ to, subject, html, text, from }) {
           secure: testAccount.smtp.secure,
           auth: { user: testAccount.user, pass: testAccount.pass },
         });
-        const effectiveFrom =
-          from ||
-          process.env.EMAIL_FROM ||
-          testAccount.user ||
-          "no-reply@example.com";
+        const { from: resolvedFrom } = resolveSmtpConfig();
+        const effectiveFrom = from || resolvedFrom || testAccount.user;
         console.log(
           "sendMail: ethereal fallback from=",
           effectiveFrom,
@@ -182,10 +210,7 @@ async function sendMail({ to, subject, html, text, from }) {
         console.log("Ethereal preview URL:", previewUrl);
         return { info, previewUrl };
       } catch (ethErr) {
-        console.error(
-          "sendMail: Ethereal fallback also failed",
-          ethErr && ethErr.message
-        );
+        logSmtpErrorDetails("sendMail: Ethereal fallback also failed", ethErr);
         throw ethErr;
       }
     }
@@ -193,4 +218,47 @@ async function sendMail({ to, subject, html, text, from }) {
   }
 }
 
-module.exports = { sendMail };
+// Called once at server startup (see server.js). Never throws — logs
+// SMTP_USER and the app-password length (never the password itself), then
+// runs transporter.verify() against the real Gmail SMTP server and logs a
+// clear success/failure line so misconfiguration is caught immediately
+// instead of surfacing later as a 535 on the first password-reset request.
+async function verifyMailerOnStartup() {
+  const { user, pass, host, port } = resolveSmtpConfig();
+
+  console.log("Mailer startup check -> SMTP_USER:", user || "(not set)");
+  console.log("Mailer startup check -> SMTP_PASS length:", pass ? pass.length : 0);
+
+  if (parseBool(process.env.USE_ETHEREAL)) {
+    console.warn("Mailer startup check: USE_ETHEREAL=true — skipping real Gmail SMTP verification.");
+    return { ok: true, ethereal: true };
+  }
+
+  if (!user || !pass) {
+    console.error(
+      "Mailer startup check: SMTP_USER/SMTP_PASS (or EMAIL_USER/EMAIL_PASS) are missing — password-reset emails will fail."
+    );
+    return { ok: false };
+  }
+
+  try {
+    const transporter = nodemailer.createTransport({
+      host,
+      port,
+      secure: parseBool(process.env.SMTP_SECURE || process.env.EMAIL_SECURE),
+      auth: { user, pass },
+    });
+    await transporter.verify();
+    console.log(`✅ Mailer startup check: SMTP connection to ${host}:${port} as ${user} verified successfully.`);
+    return { ok: true };
+  } catch (err) {
+    logSmtpErrorDetails("❌ Mailer startup check: SMTP verification failed", err);
+    console.error(
+      "Mailer startup check: for Gmail, SMTP_PASS must be a 16-character App Password " +
+      "(Google Account -> Security -> 2-Step Verification -> App passwords), not the account login password."
+    );
+    return { ok: false, error: err };
+  }
+}
+
+module.exports = { sendMail, verifyMailerOnStartup };

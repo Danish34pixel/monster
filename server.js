@@ -29,6 +29,17 @@ if (!loaded) {
     "No config.env or .env file found in Backend or current working directory. Environment variables may be missing.",
   );
 }
+
+// Confirms dotenv actually populated process.env (vs. silently no-op'ing —
+// e.g. wrong working directory, file present but empty) before anything
+// downstream relies on SMTP_* credentials.
+console.log(
+  "dotenv check -> SMTP_USER present:",
+  Boolean(process.env.SMTP_USER || process.env.EMAIL_USER),
+  "| SMTP_PASS length:",
+  (process.env.SMTP_PASS || process.env.EMAIL_PASS || "").replace(/\s+/g, "").length,
+);
+
 const isDevelopment =
   process.env.NODE_ENV === "development" ||
   process.env.NODE_ENV !== "production";
@@ -487,6 +498,13 @@ const HOST = process.env.HOST || "0.0.0.0";
 const startServer = async () => {
   try {
     await connectDB();
+
+    // Verify the Gmail SMTP connection up front so a misconfigured/expired
+    // App Password is caught in startup logs, not on the first user's
+    // forgot-password request. Never fatal — email is not required for the
+    // rest of the app to run.
+    const { verifyMailerOnStartup } = require("./utils/mailer");
+    await verifyMailerOnStartup();
 
     app.listen(PORT, HOST, () => {
       console.log(`Server running on ${HOST}:${PORT}`);

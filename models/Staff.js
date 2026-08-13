@@ -1,4 +1,5 @@
 const mongoose = require("mongoose");
+const { passwordResetTokenPlugin } = require("../utils/passwordResetToken");
 
 const StaffSchema = new mongoose.Schema(
   {
@@ -12,6 +13,8 @@ const StaffSchema = new mongoose.Schema(
     imagePublicId: { type: String, trim: true },
     aadharPublicId: { type: String, trim: true },
     password: { type: String }, // For staff login
+    resetPasswordToken: { type: String, select: false },
+    resetPasswordExpires: { type: Date, select: false },
     approved: { type: Boolean, default: true },
     approvalStatus: {
       type: String,
@@ -36,13 +39,17 @@ const StaffSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+StaffSchema.plugin(passwordResetTokenPlugin);
+
 StaffSchema.set("toJSON", {
   transform: function (doc, ret) {
     delete ret.aadharCard;       
     delete ret.address;          
-    delete ret.imagePublicId;     
-    delete ret.aadharPublicId;    
+    delete ret.imagePublicId;
+    delete ret.aadharPublicId;
     delete ret.password;
+    delete ret.resetPasswordToken;
+    delete ret.resetPasswordExpires;
     return ret;
   },
 });
