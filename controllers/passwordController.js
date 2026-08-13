@@ -25,8 +25,26 @@ function displayNameFor(account) {
 }
 
 function frontendBaseUrl() {
+  console.log("FRONTEND_URL =", process.env.FRONTEND_URL);
+  console.log("FRONTEND_BASE_URL =", process.env.FRONTEND_BASE_URL);
+
   const base = (process.env.FRONTEND_URL || process.env.FRONTEND_BASE_URL || "").replace(/\/+$/, "");
-  return base || "http://localhost:5173";
+  console.log("Resolved frontend base =", base);
+
+  if (base) return base;
+
+  // No unconditional localhost fallback — a misconfigured production
+  // deployment must fail loudly instead of silently emailing
+  // http://localhost:5173 links to real users. Localhost is only ever used
+  // as a convenience when NODE_ENV explicitly says this is local dev.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("FRONTEND_URL is not configured in production");
+  }
+
+  console.warn(
+    "frontendBaseUrl: FRONTEND_URL/FRONTEND_BASE_URL not set — falling back to http://localhost:5173 (dev only)."
+  );
+  return "http://localhost:5173";
 }
 
 async function findAccountByEmail(email) {
@@ -82,6 +100,8 @@ async function forgotPassword(req, res) {
     await found.account.save({ validateModifiedOnly: true });
 
     const resetUrl = `${frontendBaseUrl()}/reset-password/${token}`;
+    console.log("Generated reset URL:", resetUrl);
+
     const { subject, html, text } = buildPasswordResetEmail({
       name: displayNameFor(found.account),
       resetUrl,
