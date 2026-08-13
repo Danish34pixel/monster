@@ -39,7 +39,9 @@ function frontendBaseUrl() {
 
   // Trim any trailing slash so `${frontendBase}/reset-password/...` never
   // produces a double slash — this is normalization, not a fallback value.
-  return frontendBase.replace(/\/+$/, "");
+  const resolved = frontendBase.replace(/\/+$/, "");
+  console.log("frontendBaseUrl() result:", resolved);
+  return resolved;
 }
 
 async function findAccountByEmail(email) {
@@ -102,6 +104,11 @@ async function forgotPassword(req, res) {
       resetUrl,
       expiryMinutes: RESET_TOKEN_TTL_MS / 60000,
     });
+
+    // Confirms the exact URL that made it into the email body — html/text
+    // both interpolate the same `resetUrl` closed over above, so this is
+    // provably the link the recipient will see, not a re-derived value.
+    console.log("About to call sendMail() with resetUrl:", resetUrl);
 
     try {
       await sendMail({
