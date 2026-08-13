@@ -40,6 +40,13 @@ console.log(
   (process.env.SMTP_PASS || process.env.EMAIL_PASS || "").replace(/\s+/g, "").length,
 );
 
+// Confirms the deployed process actually has FRONTEND_URL in memory right
+// after boot — check this in `pm2 logs` after any .env edit + restart. A
+// missing value here (not just a wrong one) means PM2 is still running the
+// old process, or dotenv loaded the wrong file — see the
+// "Loaded environment from <path>" line logged just above for which file it read.
+console.log("Loaded FRONTEND_URL:", process.env.FRONTEND_URL);
+
 const isDevelopment =
   process.env.NODE_ENV === "development" ||
   process.env.NODE_ENV !== "production";

@@ -25,26 +25,21 @@ function displayNameFor(account) {
 }
 
 function frontendBaseUrl() {
-  console.log("FRONTEND_URL =", process.env.FRONTEND_URL);
-  console.log("FRONTEND_BASE_URL =", process.env.FRONTEND_BASE_URL);
+  console.log("FRONTEND_URL:", process.env.FRONTEND_URL);
+  console.log("FRONTEND_BASE_URL:", process.env.FRONTEND_BASE_URL);
 
-  const base = (process.env.FRONTEND_URL || process.env.FRONTEND_BASE_URL || "").replace(/\/+$/, "");
-  console.log("Resolved frontend base =", base);
+  // No localhost fallback of any kind, dev or prod — an unset FRONTEND_URL
+  // must fail loudly instead of silently emailing localhost links to real
+  // users. Set FRONTEND_URL in .env (local dev too) if this throws.
+  const frontendBase = process.env.FRONTEND_URL || process.env.FRONTEND_BASE_URL;
 
-  if (base) return base;
-
-  // No unconditional localhost fallback — a misconfigured production
-  // deployment must fail loudly instead of silently emailing
-  // http://localhost:5173 links to real users. Localhost is only ever used
-  // as a convenience when NODE_ENV explicitly says this is local dev.
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("FRONTEND_URL is not configured in production");
+  if (!frontendBase) {
+    throw new Error("FRONTEND_URL is not configured");
   }
 
-  console.warn(
-    "frontendBaseUrl: FRONTEND_URL/FRONTEND_BASE_URL not set — falling back to http://localhost:5173 (dev only)."
-  );
-  return "http://localhost:5173";
+  // Trim any trailing slash so `${frontendBase}/reset-password/...` never
+  // produces a double slash — this is normalization, not a fallback value.
+  return frontendBase.replace(/\/+$/, "");
 }
 
 async function findAccountByEmail(email) {
