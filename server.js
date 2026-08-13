@@ -11,6 +11,23 @@ const envCandidates = [
   path.join(process.cwd(), ".env"),
 ];
 
+// Make the whole resolution order visible up front — the loop below stops
+// at the FIRST candidate that exists, so if a stale config.env sits next to
+// the real .env (config.env is checked first), .env is never even opened
+// and every edit to it is silently a no-op. This log makes that
+// misconfiguration impossible to miss.
+console.log(
+  "env candidates (checked in order, first match wins):",
+  envCandidates.map((p) => `${p} [${fs.existsSync(p) ? "EXISTS" : "missing"}]`),
+);
+const existingCandidates = envCandidates.filter((p) => fs.existsSync(p));
+if (existingCandidates.length > 1) {
+  console.warn(
+    "⚠️  Multiple env files exist — only the FIRST one is loaded, the rest are silently ignored:",
+    existingCandidates,
+  );
+}
+
 let loaded = false;
 for (const p of envCandidates) {
   if (fs.existsSync(p)) {
