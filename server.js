@@ -14,7 +14,17 @@ const envCandidates = [
 let loaded = false;
 for (const p of envCandidates) {
   if (fs.existsSync(p)) {
-    dotenv.config({ path: p });
+    // override: true is deliberate — by default dotenv will NOT overwrite a
+    // process.env var that's already set. Process managers (PM2 chief among
+    // them) can snapshot/cache env vars from whatever shell first launched
+    // the process and keep injecting that stale value into every restart
+    // unless explicitly told to refresh (`pm2 restart --update-env`) — with
+    // the default (non-override) dotenv behavior, that stale value would
+    // silently win over .env forever, no matter how many times .env is
+    // edited on disk. This is a known real cause of a "fixed" .env value
+    // never actually taking effect. Forcing override here makes the .env
+    // file on disk always the source of truth, every single restart.
+    dotenv.config({ path: p, override: true });
     console.log(`Loaded environment from ${p}`);
     loaded = true;
     break;
