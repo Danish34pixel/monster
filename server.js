@@ -348,6 +348,14 @@ app.use((req, res, next) => {
   next();
 });
 
+// Server-rendered password-reset page (GET/POST /reset-password/:token) —
+// this is what the emailed reset link now points to directly, at the app
+// root (not under /api), so the link is exactly
+// https://api.medi-trap.com/reset-password/:token with no separate frontend
+// deployment required. Mounted before the JSON API routes below since it's
+// a distinct, unrelated concern (HTML, not JSON).
+app.use("/reset-password", require("./routes/resetPasswordPage"));
+
 // Routes
 app.use("/api/auth", authRoutes);
 // Mount purchaser routes

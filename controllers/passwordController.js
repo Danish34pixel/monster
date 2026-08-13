@@ -1,80 +1,24 @@
-const crypto = require("crypto");
 const bcrypt = require("bcryptjs");
-const User = require("../models/User");
-const Stockist = require("../models/Stockist");
-const Purchaser = require("../models/Purchaser");
-const Staff = require("../models/Staff");
 const { sendMail } = require("../utils/mailer");
 const { buildPasswordResetEmail } = require("../utils/emailTemplete");
 const { hashToken, RESET_TOKEN_TTL_MS } = require("../utils/passwordResetToken");
+const {
+  timingSafeStringsEqual,
+  displayNameFor,
+  findAccountByEmail,
+  findAccountByResetToken,
+} = require("../services/passwordResetService");
 
-function timingSafeStringsEqual(a, b) {
-  const bufA = Buffer.from(String(a || ""));
-  const bufB = Buffer.from(String(b || ""));
-  return bufA.length === bufB.length && bufA.length > 0 && crypto.timingSafeEqual(bufA, bufB);
-}
-
-function displayNameFor(account) {
-  return (
-    account.ownerName ||
-    account.medicalName ||
-    account.fullName ||
-    account.name ||
-    account.email
-  );
-}
-
-function frontendBaseUrl() {
-  console.log("FRONTEND_URL:", process.env.FRONTEND_URL);
-  console.log("FRONTEND_BASE_URL:", process.env.FRONTEND_BASE_URL);
-
-  // No localhost fallback of any kind, dev or prod — an unset FRONTEND_URL
-  // must fail loudly instead of silently emailing localhost links to real
-  // users. Set FRONTEND_URL in .env (local dev too) if this throws.
-  const frontendBase = process.env.FRONTEND_URL || process.env.FRONTEND_BASE_URL;
-
-  if (!frontendBase) {
-    throw new Error("FRONTEND_URL is not configured");
-  }
-
-  // Trim any trailing slash so `${frontendBase}/reset-password/...` never
-  // produces a double slash — this is normalization, not a fallback value.
-  const resolved = frontendBase.replace(/\/+$/, "");
-  console.log("frontendBaseUrl() result:", resolved);
-  return resolved;
-}
-
-async function findAccountByEmail(email) {
-  const normalizedEmail = String(email || "").trim().toLowerCase();
-
-  const accountInUser = await User.findOne({ email: normalizedEmail });
-  if (accountInUser) return { model: User, account: accountInUser };
-
-  const accountInStockist = await Stockist.findOne({ email: normalizedEmail });
-  if (accountInStockist) return { model: Stockist, account: accountInStockist };
-
-  const accountInPurchaser = await Purchaser.findOne({ email: normalizedEmail });
-  if (accountInPurchaser) return { model: Purchaser, account: accountInPurchaser };
-
-  const accountInStaff = await Staff.findOne({ email: normalizedEmail });
-  if (accountInStaff) return { model: Staff, account: accountInStaff };
-
-  return null;
-}
-
-// Looks up an account purely by its hashed reset token (used by the
-// link-based reset flow, which only carries the token — not the email — in
-// the URL). Each model is checked independently since tokens aren't unique
-// across collections.
-async function findAccountByResetToken(hashedToken) {
-  const models = [User, Stockist, Purchaser, Staff];
-  for (const model of models) {
-    const account = await model
-      .findOne({ resetPasswordToken: hashedToken })
-      .select("+resetPasswordToken +resetPasswordExpires +password");
-    if (account) return { model, account };
-  }
-  return null;
+// The reset-password page is now served directly by this backend — see
+// routes/resetPasswordPage.js (GET/POST /reset-password/:token) — so the
+// emailed link no longer depends on a separately-hosted frontend at all.
+// Override via RESET_PASSWORD_BASE_URL for local/staging testing (e.g.
+// http://localhost:5002); defaults to the real production API domain so a
+// missing/misconfigured env var can never silently produce a localhost link.
+function resetPasswordPageBaseUrl() {
+  const base = (process.env.RESET_PASSWORD_BASE_URL || "https://api.medi-trap.com").replace(/\/+$/, "");
+  console.log("resetPasswordPageBaseUrl() result:", base);
+  return base;
 }
 
 const GENERIC_FORGOT_MESSAGE =
@@ -96,7 +40,7 @@ async function forgotPassword(req, res) {
     const token = found.account.generatePasswordResetToken();
     await found.account.save({ validateModifiedOnly: true });
 
-    const resetUrl = `${frontendBaseUrl()}/reset-password/${token}`;
+    const resetUrl = `${resetPasswordPageBaseUrl()}/reset-password/${token}`;
     console.log("Generated reset URL:", resetUrl);
 
     const { subject, html, text } = buildPasswordResetEmail({
@@ -141,7 +85,10 @@ async function forgotPassword(req, res) {
 }
 
 // POST /api/auth/reset-password/:token  { password, confirmPassword }
-// Token-only lookup for the emailed link flow.
+// JSON API variant — kept for any programmatic/native-app callers. The
+// user-facing email link now points at the server-rendered HTML page
+// instead (routes/resetPasswordPage.js), which shares the same account
+// lookup/token logic via services/passwordResetService.js.
 async function resetPasswordWithToken(req, res) {
   try {
     const token = String(req.params.token || "").trim();
