@@ -51,9 +51,14 @@ router.post("/create", optionalAuthenticate, async (req, res) => {
     for (const it of rawItems) {
       const name = String(it && it.name ? it.name : "").trim();
       const key = name.toLowerCase();
+      const qty = Math.max(1, parseInt(it && it.qty, 10) || 1);
+      const medicineId =
+        it && it.medicineId && String(it.medicineId).length === 24
+          ? it.medicineId
+          : undefined;
       if (!name || seen.has(key)) continue;
       seen.add(key);
-      cleanedItems.push({ name });
+      cleanedItems.push({ name, qty, medicineId });
     }
 
     if (cleanedItems.length === 0) {
@@ -89,7 +94,7 @@ router.post("/create", optionalAuthenticate, async (req, res) => {
         const hasStockists = Boolean(matched && matched.stockists.length > 0);
         return {
           name: it.name,
-          qty: 1,
+          qty: it.qty,
           matchedMedicineId: matched ? matched.medicineId : null,
           matchedMedicineName: matched ? matched.medicineName : null,
           // Every matched stockist is recorded (and every one is actually

@@ -55,9 +55,11 @@ async function distributeDemand(demand = {}, options = {}) {
   for (const item of rawItems) {
     const name = String(item && item.name ? item.name : "").trim();
     const normalized = normalizeItemName(name);
+    const qty = Math.max(1, parseInt(item && item.qty, 10) || 1);
+    const medicineId = item && item.medicineId ? String(item.medicineId) : null;
     if (!normalized || seen.has(normalized)) continue;
     seen.add(normalized);
-    dedupedItems.push({ name, normalized });
+    dedupedItems.push({ name, normalized, qty, medicineId });
   }
 
   if (dedupedItems.length === 0) {
@@ -79,15 +81,18 @@ async function distributeDemand(demand = {}, options = {}) {
 
   const resolvedItems = dedupedItems.map((it) => {
     const q = it.normalized;
-    // Simple catalog matching logic
-    const match =
-      catalogMedicines.find((m) => normalizeItemName(m.name) === q) ||
-      catalogMedicines.find((m) => normalizeItemName(m.name).includes(q)) ||
-      catalogMedicines.find((m) => q.includes(normalizeItemName(m.name)));
+    // Trust an explicit medicineId (set when the purchaser clicked an
+    // autosuggest result) over fuzzy name matching — it's exact.
+    const match = it.medicineId
+      ? catalogMedicines.find((m) => String(m._id) === it.medicineId)
+      : catalogMedicines.find((m) => normalizeItemName(m.name) === q) ||
+        catalogMedicines.find((m) => normalizeItemName(m.name).includes(q)) ||
+        catalogMedicines.find((m) => q.includes(normalizeItemName(m.name)));
 
     return {
       requestedAs: it.name,
       normalizedRequested: it.normalized,
+      qty: it.qty,
       medicineName: match ? match.name : it.name,
       normalizedMedicine: normalizeItemName(match ? match.name : it.name),
       medicineId: match ? match._id : null,
@@ -135,11 +140,12 @@ async function distributeDemand(demand = {}, options = {}) {
     });
 
     if (matches.length === 0) {
-      unfulfilledItems.push({ name: item.requestedAs });
+      unfulfilledItems.push({ name: item.requestedAs, qty: item.qty });
       inventoryMapping.push({
         medicineId: item.medicineId,
         medicineName: item.medicineName,
         requestedAs: item.requestedAs,
+        qty: item.qty,
         stockists: [],
       });
       continue;
@@ -152,6 +158,7 @@ async function distributeDemand(demand = {}, options = {}) {
       medicineId: item.medicineId,
       medicineName: item.medicineName,
       requestedAs: item.requestedAs,
+      qty: item.qty,
       stockists: matches.map(m => ({
         id: m.supplierId,
         name: m.name || m.supplierName,
@@ -169,7 +176,7 @@ async function distributeDemand(demand = {}, options = {}) {
         items: [],
         status: "pending",
       };
-      existing.items.push({ name: item.medicineName });
+      existing.items.push({ name: item.medicineName, qty: item.qty });
       supplierBuckets.set(key, existing);
     }
   }

@@ -3,6 +3,7 @@ const mongoose = require("mongoose");
 const SupplierDemandItemSchema = new mongoose.Schema(
   {
     name: { type: String, required: true, trim: true },
+    qty: { type: Number, default: 1, min: 1 },
   },
   { _id: false }
 );

@@ -343,7 +343,7 @@ exports.registerStockist = async (req, res) => {
     if (String(err.message || "").includes("already in use")) {
       return res.status(400).json({ success: false, message: err.message });
     }
-    console.error("Stockist registration failed:", err);
+    console.error("Stockist registration failed:", err && err.stack ? err.stack : err);
     return res
       .status(500)
       .json({ success: false, message: "Failed to register stockist" });

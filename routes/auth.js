@@ -220,7 +220,6 @@ router.post(
         drugLicenseImage: drugLicenseImageUrl,
         password: hashedPassword,
         role: "medical_owner",
-        // Trial starts immediately; no Razorpay order is created at signup.
         accountStatus: "active",
         paymentStatus: "unpaid",
         trialStartDate,
@@ -248,7 +247,7 @@ router.post(
         paymentRequired: false,
       });
     } catch (error) {
-      console.error("Signup error:", error && error.message, error);
+      console.error("Signup error:", error && error.stack ? error.stack : error);
       if (error && error.code === 11000) {
         return res
           .status(409)
@@ -780,10 +779,8 @@ router.post(
         password: hashedPassword,
         aadharImage: aadharUpload.url,
         photo: photoUpload.url,
-        // Purchasers are auto-approved/verified at signup — no admin review for this role.
         approved: true,
         verified: true,
-        // Trial starts immediately; no Razorpay order is created at signup.
         accountStatus: "active",
         paymentStatus: "unpaid",
         trialStartDate,
@@ -816,6 +813,7 @@ router.post(
         },
       });
     } catch (error) {
+      console.error("Purchaser signup error:", error && error.stack ? error.stack : error);
       return res
         .status(500)
         .json({ success: false, message: "Internal Server Error" });

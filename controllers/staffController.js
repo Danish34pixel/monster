@@ -30,6 +30,46 @@ function toSafeStaff(staff) {
 }
 
 async function resolveWorkplace(body = {}, reqUser = null) {
+  // A stockist (or admin acting as one) adding their own team member already
+  // knows the workplace — it's themselves. Short-circuit before validating
+  // workForType/workForName, since the "add team member" form never sends
+  // those fields and would otherwise always fail with "Please select...".
+  if (reqUser && reqUser.role === "stockist") {
+    const workForNameRaw = body.workForName || body.worksUnderName;
+    return {
+      workForType: "stockist",
+      workForId: reqUser._id,
+      workForName: reqUser.name || reqUser.contactPerson || String(workForNameRaw || "").trim(),
+      stockist: reqUser._id,
+    };
+  }
+
+  // Admin picking a stockist from the dropdown (AdminCreateStaff /
+  // StaffCreate.jsx) only sends `stockist` (an id) — no workForType/workForName.
+  // Derive both from the picked stockist instead of requiring the admin to
+  // type them in.
+  const adminPickedStockistId = body.stockist || body.workForId || body.workFor;
+  if (
+    reqUser &&
+    reqUser.role === "admin" &&
+    adminPickedStockistId &&
+    mongoose.Types.ObjectId.isValid(adminPickedStockistId) &&
+    !(body.workForType || body.worksUnderType)
+  ) {
+    const stockist = await Stockist.findById(adminPickedStockistId)
+      .select("_id name")
+      .lean();
+    if (!stockist) {
+      throw new Error("Selected wholesaler was not found. Please enter a valid stockist name.");
+    }
+    return {
+      workForType: "stockist",
+      workForId: stockist._id,
+      workForName: stockist.name,
+      stockist: stockist._id,
+    };
+  }
+
   const workForTypeRaw = body.workForType || body.worksUnderType;
   const workForNameRaw = body.workForName || body.worksUnderName;
   const workForType = String(workForTypeRaw || "").trim().toLowerCase();
@@ -43,15 +83,6 @@ async function resolveWorkplace(body = {}, reqUser = null) {
   }
   if (!workForName) {
     throw new Error("Please enter the stockist/medical name.");
-  }
-
-  if (reqUser && reqUser.role === "stockist") {
-    return {
-      workForType: "stockist",
-      workForId: reqUser._id,
-      workForName: reqUser.name || reqUser.contactPerson || workForName,
-      stockist: reqUser._id,
-    };
   }
 
   if (!workForId) {
@@ -171,6 +202,7 @@ exports.createStaff = async (req, res) => {
 
     return res.status(201).json({ success: true, data: toSafeStaff(staff) });
   } catch (err) {
+    console.error("createStaff error:", err && err.stack ? err.stack : err);
     const msg = String(err.message || "");
     if (
       msg.includes("Please select") ||
